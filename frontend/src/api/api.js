@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://43.204.222.227:8001";
+const API_BASE_URL = "https://api.aerostatelab.com";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
