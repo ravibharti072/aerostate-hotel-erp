@@ -1,0 +1,303 @@
+/* --- BASE LAYOUT --- */
+.rmi-page {
+  flex-grow: 1;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background-color: #f4f7fa;
+  min-height: 100vh;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #0f172a;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Add Menu Item Button (Passed via PortalHeader rightAction) */
+.rmi-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #3b82f6;
+  color: #ffffff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.rmi-add-btn:hover { 
+  background: #2563eb; 
+}
+
+/* --- STATS GRID LAYOUT --- */
+.rmi-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* --- MODULE SECTION --- */
+.rmi-modules-section {
+  display: flex;
+  flex-direction: column;
+  /* Reduced gap to tighten space below the header */
+  gap: 16px; 
+  /* Negative margin to pull the header closer to the stats cards */
+  margin-top: -12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* --- TOOLBAR --- */
+.rmi-toolbar-card {
+  background: #ffffff;
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1px solid #eef2f6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.rmi-search-box, .rmi-filter-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 9px 14px;
+  border-radius: 10px;
+  color: #64748b;
+}
+
+.rmi-filters-right-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rmi-search-box input, .rmi-filter-box select {
+  border: none; 
+  background: transparent; 
+  outline: none; 
+  font-size: 13px; 
+  color: #0f172a; 
+  font-weight: 500; 
+  width: 100%;
+}
+
+/* --- CARDS GRID --- */
+.rmi-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+}
+
+.rmi-item-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+
+.rmi-item-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.06);
+  border-color: #cbd5e1;
+}
+
+.rmi-item-card.unavailable-card {
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+  opacity: 0.85;
+}
+
+.rmi-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.rmi-item-category {
+  font-size: 10px; 
+  font-weight: 800; 
+  color: #3b82f6; 
+  background: #eff6ff; 
+  padding: 3px 8px; 
+  border-radius: 6px; 
+  text-transform: uppercase;
+}
+
+.rmi-pill {
+  font-size: 10px; 
+  font-weight: 800; 
+  padding: 3px 8px; 
+  border-radius: 20px; 
+  text-transform: uppercase;
+}
+.rmi-pill.available { background: #ecfdf5; color: #10b981; }
+.rmi-pill.unavailable { background: #fef2f2; color: #dc2626; }
+
+.rmi-item-name {
+  margin: 0 0 4px 0; 
+  font-size: 14px; 
+  font-weight: 800; 
+  color: #0f172a; 
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis;
+}
+
+.rmi-item-desc {
+  font-size: 11px; 
+  color: #64748b; 
+  margin: 0 0 16px 0; 
+  line-height: 1.4; 
+  flex-grow: 1; 
+  display: -webkit-box; 
+  -webkit-line-clamp: 2; 
+  line-clamp: 2;
+  -webkit-box-orient: vertical; 
+  overflow: hidden;
+}
+
+.rmi-item-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.rmi-price-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rmi-item-price-half {
+  font-size: 11px; 
+  font-weight: 700; 
+  color: #64748b;
+}
+
+.rmi-item-price-full {
+  font-size: 14px; 
+  font-weight: 800; 
+  color: #0f172a;
+}
+
+.rmi-item-actions {
+  display: flex; 
+  gap: 6px;
+}
+
+.rmi-action-btn {
+  background: #f1f5f9; 
+  border: none; 
+  width: 28px; 
+  height: 28px; 
+  border-radius: 6px; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  cursor: pointer; 
+  color: #475569; 
+  transition: all 0.2s;
+}
+
+.rmi-action-btn.edit:hover { background: #e0f2fe; color: #0284c7; }
+.rmi-action-btn.delete:hover:not(:disabled) { background: #fee2e2; color: #dc2626; }
+.rmi-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.rmi-empty {
+  padding: 40px; 
+  text-align: center; 
+  color: #64748b; 
+  font-weight: 500; 
+  grid-column: span 6;
+}
+
+/* --- MODAL --- */
+.rmi-modal-backdrop {
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%; 
+  background: rgba(15, 23, 42, 0.5); 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  z-index: 1000;
+}
+
+.rmi-modal {
+  background: #ffffff; 
+  width: 450px; 
+  border-radius: 16px; 
+  padding: 24px; 
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+  display: flex; 
+  flex-direction: column; 
+  gap: 16px;
+}
+
+.rmi-modal.rmi-delete-modal { width: 380px; }
+
+.rmi-modal-header { display: flex; justify-content: space-between; align-items: center; }
+.rmi-modal-header h3 { margin: 0; font-size: 18px; font-weight: 800; color: #0f172a; }
+.rmi-modal-header button { background: none; border: none; cursor: pointer; color: #64748b; }
+
+.rmi-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rmi-form-group { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.rmi-form-group.rmi-full-width { grid-column: span 2; }
+.rmi-form-group label { font-size: 12px; font-weight: 700; color: #475569; }
+
+.rmi-modal input[type="text"], .rmi-modal input[type="number"], .rmi-modal select, .rmi-modal textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; box-sizing: border-box; background: #fff;
+}
+
+.rmi-checkbox-box label {
+  display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; color: #334155; font-size: 13px; margin-top: 8px;
+}
+
+.rmi-delete-message p { margin: 0 0 8px 0; font-size: 13px; color: #475569; line-height: 1.4; }
+
+.rmi-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.rmi-btn-secondary { background: #f1f5f9; color: #475569; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.rmi-btn-primary { background: #3b82f6; color: #ffffff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.rmi-btn-danger { background: #ef4444; color: #ffffff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+
+/* MESSAGES */
+.rmi-error-box { background-color: #fee2e2; color: #b91c1c; padding: 12px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; }
+.rmi-success-box { background-color: #d1fae5; color: #047857; padding: 12px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; }
+
+/* RESPONSIVE */
+@media (max-width: 1600px) { .rmi-cards-grid { grid-template-columns: repeat(5, 1fr); } }
+@media (max-width: 1400px) { .rmi-cards-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 1024px) { 
+  .rmi-cards-grid { grid-template-columns: repeat(3, 1fr); }
+  .rmi-stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .rmi-cards-grid { grid-template-columns: repeat(2, 1fr); }
+  .rmi-stats-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) { .rmi-cards-grid { grid-template-columns: 1fr; } }

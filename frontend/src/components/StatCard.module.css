@@ -1,0 +1,49 @@
+/* src/components/StatCard.module.css */
+.stat-card {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid #eef2f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.01);
+}
+
+.stat-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-info p {
+  margin: 0 0 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.stat-info h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* --- Reusable Color Themes --- */
+.bg-light-blue { background: #eff6ff; }
+.color-blue { color: #3b82f6; }
+
+.bg-light-green { background: #ecfdf5; }
+.color-green { color: #10b981; }
+
+.bg-light-orange { background: #fff7ed; }
+.color-orange { color: #f97316; }
+
+.bg-light-purple { background: #fdf4ff; }
+.color-purple { color: #c026d3; }
+
+/* Add more colors (red, yellow, gray) here as needed for other pages */

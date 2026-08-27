@@ -1,0 +1,14 @@
+# Environments
+.env
+venv/
+env/
+.venv/
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Databases
+*.db
+*.sqlite3
+hotel_erp.db

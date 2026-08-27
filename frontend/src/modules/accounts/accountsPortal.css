@@ -1,0 +1,123 @@
+/* =========================================
+   BASE LAYOUT
+   ========================================= */
+.accounts-page {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px; 
+  background-color: #f4f7fa;
+  min-height: 100vh;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #0f172a;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Header Month Picker */
+.accounts-month-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.accounts-month-picker .icon { color: #64748b; }
+.accounts-month-picker input { 
+  border: none; 
+  outline: none; 
+  font-size: 14px; 
+  color: #0f172a; 
+  cursor: pointer; 
+  font-weight: 500; 
+  font-family: inherit;
+}
+
+/* =========================================
+   STATS GRID (4 Columns)
+   ========================================= */
+.accounts-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* =========================================
+   MODULES SECTION
+   ========================================= */
+.accounts-modules-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px; 
+  margin-top: -12px; 
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.accounts-modules-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.module-wrapper {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.module-wrapper:hover {
+  transform: translateY(-4px);
+}
+
+/* Badges for Module Cards */
+.custom-module-badge {
+  position: absolute;
+  top: -12px;
+  right: -10px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  z-index: 10;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.badge-pending {
+  background: #ef4444; /* Red for alerts/pending */
+  color: white;
+  border: 2px solid white;
+}
+
+.badge-soon {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+/* =========================================
+   RESPONSIVENESS
+   ========================================= */
+@media (max-width: 1400px) {
+  .accounts-modules-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 1200px) {
+  .accounts-stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .accounts-page { padding: 16px; gap: 24px; }
+  .accounts-stats-grid { grid-template-columns: 1fr; }
+  .accounts-modules-grid { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,66 @@
+.hk-portal-page {
+  flex-grow: 1;
+  padding: 24px;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background-color: #f4f7fa;
+  min-height: 100vh;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #0f172a;
+}
+
+/* --- STATS GRID LAYOUT --- */
+.hk-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px; 
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* --- MODULES SECTION --- */
+.hk-modules-section {
+  display: flex;
+  flex-direction: column;
+  /* Reduced gap to tighten space below the header */
+  gap: 16px; 
+  /* Added negative margin to pull the header up closer to the stats cards */
+  margin-top: -12px; 
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 4 columns layout matching standard portal grids */
+.hk-modules-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px; 
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsiveness */
+@media (max-width: 1400px) {
+  .hk-modules-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .hk-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .hk-portal-page {
+    padding: 16px;
+  }
+  .hk-stats-grid,
+  .hk-modules-grid {
+    grid-template-columns: 1fr;
+  }
+}

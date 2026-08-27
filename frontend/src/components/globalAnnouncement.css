@@ -1,0 +1,45 @@
+.global-announcement-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: white;
+  animation: slideDown 0.4s ease-out;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 100;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.global-announcement-banner.info { background: #3b82f6; }
+.global-announcement-banner.success { background: #10b981; }
+.global-announcement-banner.warning { background: #f59e0b; }
+.global-announcement-banner.critical { background: #ef4444; }
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.banner-text { font-size: 14px; line-height: 1.4; }
+.banner-separator { margin: 0 8px; opacity: 0.6; }
+
+.banner-close {
+  background: transparent;
+  border: none;
+  color: white;
+  opacity: 0.8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.banner-close:hover { opacity: 1; background: rgba(255, 255, 255, 0.2); }

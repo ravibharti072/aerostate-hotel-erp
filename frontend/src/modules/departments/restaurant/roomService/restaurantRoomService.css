@@ -1,0 +1,413 @@
+/* --- BASE LAYOUT --- */
+.rs-page {
+  flex-grow: 1;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background-color: #f4f7fa;
+  min-height: 100vh;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #0f172a;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Header Buttons Group */
+.rs-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Create Order Action Button */
+.rs-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #3b82f6;
+  color: #ffffff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.rs-add-btn:hover { 
+  background: #2563eb; 
+}
+
+/* Export Report Action Button (Now in Header) */
+.rs-export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 9px 16px; /* 9px padding compensates for 1px border to match 10px padding of add-btn */
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.rs-export-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* --- STATS GRID LAYOUT --- */
+.rs-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* --- MODULE SECTION --- */
+.rs-modules-section {
+  display: flex;
+  flex-direction: column;
+  /* Tight space below ModuleWriternHeader */
+  gap: 16px; 
+  /* Pull header closer to stats */
+  margin-top: -12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* --- TOOLBAR --- */
+.rs-toolbar-card {
+  background: #ffffff;
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1px solid #eef2f6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.rs-search-box, .rs-filter-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 9px 14px;
+  border-radius: 10px;
+  color: #64748b;
+}
+
+.rs-search-box {
+  flex: 1;
+  min-width: 250px;
+}
+
+.rs-filters-right-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rs-search-box input, .rs-filter-box select {
+  border: none; 
+  background: transparent; 
+  outline: none; 
+  font-size: 13px; 
+  color: #0f172a; 
+  font-weight: 500; 
+  width: 100%;
+}
+
+/* --- DATE RANGE PICKER --- */
+.rs-date-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 7px 12px;
+  border-radius: 10px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rs-date-filter input[type="date"] {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  font-family: inherit;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.rs-date-filter span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+/* --- ITEM CARDS GRID (4 per row) --- */
+.rs-cards-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.rs-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.rs-item-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+
+.rs-item-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.06);
+  border-color: #cbd5e1;
+}
+
+/* Soft Deletion & Edit Highlights */
+.rs-card-deleted {
+  background-color: #fef2f2 !important;
+  border-color: #fca5a5 !important;
+}
+
+.rs-card-edited {
+  background-color: #fefce8 !important;
+  border-color: #fef08a !important;
+}
+
+.rs-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.rs-id-pill {
+  background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 11px;
+}
+
+.rs-status {
+  padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 800; text-transform: uppercase;
+}
+
+.rs-status.pending { background: #fff7ed; color: #ea580c; }
+.rs-status.preparing { background: #faf5ff; color: #9333ea; }
+.rs-status.served { background: #eff6ff; color: #2563eb; }
+.rs-status.completed { background: #ecfdf5; color: #10b981; }
+.rs-status.cancelled { background: #fef2f2; color: #dc2626; }
+
+.rs-guest-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.rs-guest-meta strong { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #0f172a; }
+.rs-guest-meta span { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; font-weight: 500;}
+
+.rs-item-desc {
+  font-size: 12px; color: #475569; margin: 0 0 16px 0; line-height: 1.4; flex-grow: 1; font-weight: 500;
+}
+
+.rs-delete-reason {
+  font-size: 11px; color: #dc2626; font-style: italic; font-weight: 600; margin-bottom: 12px;
+}
+
+.rs-edit-badge {
+  background: #fef08a; color: #854d0e; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; display: inline-block; margin-bottom: 12px; align-self: flex-start;
+}
+
+.rs-item-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.rs-card-deleted .rs-item-footer, .rs-card-edited .rs-item-footer {
+  border-top-color: transparent;
+}
+
+.rs-item-price {
+  font-size: 16px; font-weight: 800; color: #0f172a;
+}
+
+.rs-action-btns {
+  display: flex; gap: 6px;
+}
+
+.rs-action-btn {
+  background: #f1f5f9; border: none; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #475569; transition: all 0.2s;
+}
+
+.rs-card-deleted .rs-action-btn { background: #fee2e2; }
+.rs-card-edited .rs-action-btn { background: #fef08a; }
+
+.rs-action-btn.edit:hover:not(.disabled-btn) { background: #e0f2fe; color: #0284c7; }
+.rs-action-btn.delete:hover:not(:disabled) { background: #fee2e2; color: #dc2626; }
+.rs-action-btn:disabled, .rs-action-btn.disabled-btn { opacity: 0.5; cursor: not-allowed; }
+
+.rs-empty {
+  padding: 40px; text-align: center; color: #64748b; font-weight: 500;
+  grid-column: span 4;
+}
+
+/* --- MODAL & SEARCHABLE SELECT DROPDOWNS --- */
+.rs-modal-backdrop {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+
+.rs-modal {
+  background: #ffffff; width: 420px; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 16px; max-height: 90vh; overflow-y: auto;
+}
+
+.rs-modal.form-modal { width: 550px; }
+.rs-modal.alert-modal { width: 380px; text-align: center; }
+
+.rs-modal-header { display: flex; justify-content: space-between; align-items: center; }
+.rs-modal-header h3 { margin: 0; font-size: 18px; font-weight: 800; color: #0f172a; }
+.rs-modal-header button { background: none; border: none; cursor: pointer; color: #64748b; }
+
+.rs-modal-desc { font-size: 13px; color: #64748b; margin: 0 0 12px 0; line-height: 1.4; }
+
+.rs-form-row { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+
+.rs-form-group { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; position: relative; }
+.rs-form-group label { font-size: 12px; font-weight: 700; color: #475569; }
+
+.rs-modal input[type="text"], 
+.rs-modal input[type="number"], 
+.rs-modal input[type="date"], 
+.rs-modal select, 
+.rs-modal textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; box-sizing: border-box; background: #fff;
+}
+
+/* Scrollable dropdown list */
+.rs-dropdown-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  z-index: 50;
+  margin-top: 4px;
+}
+
+.rs-dropdown-item {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #0f172a;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.rs-dropdown-item:hover {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.rs-dropdown-item.empty {
+  color: #94a3b8;
+  cursor: default;
+  text-align: center;
+}
+
+.rs-full-width-textarea { margin-top: 8px; width: 100%; box-sizing: border-box;}
+
+.rs-add-cart-btn {
+  background: #eff6ff; color: #3b82f6; border: 1px dashed #bfdbfe; padding: 10px; border-radius: 8px; font-weight: 700; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; transition: all 0.2s; width: 100%; height: 40px; margin-top: 23px;
+}
+.rs-add-cart-btn:hover { background: #dbeafe; }
+
+/* CART LIST STYLING */
+.rs-cart-box { border: 1px solid #e2e8f0; border-radius: 10px; margin-top: 16px; overflow: hidden; }
+.rs-cart-box h4 { margin: 0; padding: 12px 16px; background: #f8fafc; font-size: 13px; border-bottom: 1px solid #e2e8f0; color: #475569; }
+.rs-cart-empty { padding: 20px; margin: 0; text-align: center; font-size: 12px; color: #94a3b8; }
+
+.rs-cart-list {
+  max-height: 160px;
+  overflow-y: auto;
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px;
+}
+
+.rs-cart-row { display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid #f1f5f9; gap: 12px; }
+.rs-cart-row:last-child { border-bottom: none; }
+
+.rs-cart-info { flex-grow: 1; display: flex; flex-direction: column; gap: 2px; }
+.rs-cart-info strong { font-size: 13px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.rs-cart-info span { font-size: 11px; color: #64748b; }
+
+.rs-cart-row input[type="number"] { width: 48px !important; padding: 5px !important; text-align: center; font-size: 12px; }
+.rs-cart-row b { font-size: 13px; color: #0f172a; min-width: 60px; text-align: right; }
+
+.rs-remove-btn { background: #fee2e2; color: #dc2626; border: none; width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+
+.rs-booking-preview {
+  background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; font-size: 13px; color: #475569;
+}
+.rs-full-width { grid-column: span 2; }
+
+.rs-total-summary { display: flex; flex-direction: column; justify-content: center; align-items: flex-end; margin-top: 23px; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 0 16px; border-radius: 8px; height: 40px; }
+.rs-total-summary span { font-size: 10px; color: #065f46; font-weight: 700; text-transform: uppercase; }
+.rs-total-summary strong { font-size: 16px; color: #047857; line-height: 1; }
+
+.rs-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.rs-btn-secondary { background: #f1f5f9; color: #475569; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.rs-btn-primary { background: #3b82f6; color: #ffffff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.rs-btn-danger { background: #ef4444; color: #ffffff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+
+/* MESSAGES */
+.rs-error-box { background-color: #fee2e2; color: #b91c1c; padding: 12px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; }
+.rs-success-box { background-color: #d1fae5; color: #047857; padding: 12px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; }
+
+/* RESPONSIVE */
+@media (max-width: 1400px) { 
+  .rs-cards-grid { grid-template-columns: repeat(3, 1fr); } 
+}
+@media (max-width: 1024px) { 
+  .rs-cards-grid { grid-template-columns: repeat(2, 1fr); }
+  .rs-stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .rs-cards-grid { grid-template-columns: 1fr; }
+  .rs-stats-grid { grid-template-columns: 1fr; }
+  .rs-toolbar-card { flex-direction: column; align-items: stretch; }
+  .rs-filters-right-group { flex-direction: column; align-items: stretch; }
+  .rs-date-filter { flex-direction: column; align-items: stretch; }
+}

@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #0f172a;
+  background: #f4f7fb;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100vh; /* Locked to exact viewport height */
+  overflow: hidden; /* Strictly prevents the entire page/sidebar from scrolling */
+  background: #f4f7fb;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  letter-spacing: -0.01em;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  letter-spacing: -0.035em;
+}
+
+p,
+span,
+label,
+input,
+select,
+textarea,
+button,
+td,
+th {
+  letter-spacing: -0.01em;
+}
+
+/* --- GLOBAL LAYOUT CONTROLS --- */
+/* Enforces pinned sidebar and independent content scrolling */
+
+.lrs-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.lrs-sidebar {
+  height: 100vh;
+  flex-shrink: 0;
+  overflow-y: auto; /* Allows sidebar to scroll internally if menus get long */
+}
+
+.lrs-main-content {
+  flex-grow: 1;
+  height: 100vh;
+  
+  /* --- THE FIX --- */
+  /* Changing 'auto' to 'scroll' forces the scrollbar track to remain visible, 
+     reserving the width and preventing the StatCards from shifting! */
+  overflow-y: scroll; 
+  scrollbar-gutter: stable;
+}
