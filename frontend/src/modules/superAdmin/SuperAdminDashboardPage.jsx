@@ -9,18 +9,22 @@ import {
   UserCog,
   Settings,
   Clock,
-  ArrowRight,
   ListOrdered,
   Calendar,
   Megaphone,
   Send,
-  CheckCircle2, // <-- Added for success icon
-  AlertCircle   // <-- Added for error icon
+  CheckCircle2,
+  AlertCircle,
+  X
 } from "lucide-react";
 import api from "../../api/api";
 import { useAuth } from "../../context/AuthContext";
+import PortalHeader from "../../components/PortalHeader";
+import StatCard from "../../components/StatCard";
+import ModuleCard from "../../components/ModuleCard";
 import styles from "./superAdminDashboard.module.css";
-import SuperAdminSidebar from "./SuperAdminSidebar";
+
+// Removed the SuperAdminSidebar import
 
 export default function SuperAdminDashboardPage() {
   const navigate = useNavigate();
@@ -33,9 +37,8 @@ export default function SuperAdminDashboardPage() {
 
   const [alertForm, setAlertForm] = useState({ title: "", message: "", alert_type: "info" });
   const [isPublishing, setIsPublishing] = useState(false);
-  
-  // NEW: State for in-software feedback message
   const [toast, setToast] = useState({ show: false, type: "", message: "" });
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -79,10 +82,9 @@ export default function SuperAdminDashboardPage() {
     };
   }, [hotels, users]);
 
-  // UPDATED: Handler using in-software Toast instead of browser Alert
   const handlePublishAlert = async (e) => {
     e.preventDefault();
-    setToast({ show: false, type: "", message: "" }); // Reset
+    setToast({ show: false, type: "", message: "" });
 
     if (!alertForm.title || !alertForm.message) {
       setToast({ show: true, type: "error", message: "Please fill out both title and message." });
@@ -95,10 +97,10 @@ export default function SuperAdminDashboardPage() {
       setToast({ show: true, type: "success", message: "System Announcement Published Successfully! All hotels will see it immediately." });
       setAlertForm({ title: "", message: "", alert_type: "info" });
       
-      // Auto-hide the message after 5 seconds
       setTimeout(() => {
         setToast({ show: false, type: "", message: "" });
-      }, 5000);
+        setShowBroadcastModal(false);
+      }, 2500);
 
     } catch (err) {
       console.error(err);
@@ -123,204 +125,190 @@ export default function SuperAdminDashboardPage() {
   });
 
   const moduleCards = [
-    { label: "Hotel Onboard", icon: Hotel, path: "/super-admin/hotel-onboard", iconClass: styles["icon-blue"] },
-    { label: "Create Credential", icon: Key, path: "/super-admin/create-credential", iconClass: styles["icon-purple"] },
-    { label: "Subscriptions & Validity", icon: Calendar, path: "/super-admin/subscriptions", iconClass: styles["icon-green"] },
-    { label: "Assign Module", icon: UserCog, path: "/super-admin/assign-module", iconClass: styles["icon-orange"] },
-    { label: "Hotels Directory", icon: ListOrdered, path: "/super-admin/hotels", iconClass: styles["icon-yellow"] },
-    { label: "Settings", icon: Settings, path: "/super-admin/settings", iconClass: styles["icon-gray"] },
+    { title: "Hotel Onboard", icon: Hotel, path: "/super-admin/hotel-onboard", colorTheme: "blue" },
+    { title: "Create Credential", icon: Key, path: "/super-admin/create-credential", colorTheme: "purple" },
+    { title: "Subscriptions", icon: Calendar, path: "/super-admin/subscriptions", colorTheme: "green" },
+    { title: "Assign Module", icon: UserCog, path: "/super-admin/assign-module", colorTheme: "orange" },
+    { title: "Hotels Directory", icon: ListOrdered, path: "/super-admin/hotels", colorTheme: "orange" },
+    { 
+      title: "System Announcements", 
+      icon: Megaphone, 
+      action: () => setShowBroadcastModal(true), 
+      colorTheme: "pink" 
+    },
+    { title: "Settings", icon: Settings, path: "/super-admin/settings", colorTheme: "gray" },
   ];
 
   return (
-    <div className={styles["sa-page"]}>
-      <SuperAdminSidebar />
-
-      <main className={styles["sa-main"]}>
-        
-        <header className={styles["sa-header-card"]}>
-          <div className={styles["sa-header-left"]}>
-            <div className={styles["sa-header-icon"]}>
-              <Building2 size={24} />
-            </div>
-            <div>
-              <span className={styles["sa-kicker"]}>Platform Management</span>
-              <h1>Super Admin Portal</h1>
-            </div>
-          </div>
-
-          <div className={styles["sa-time-widget"]}>
-            <Clock size={20} className={styles["time-icon"]} />
+    <div className={styles["sa-main"]}>
+      
+      <PortalHeader 
+        title="Super Admin Portal"
+        kicker="PLATFORM MANAGEMENT"
+        icon={Building2}
+        showBack={false}
+        rightAction={
+          <div className={styles["time-widget"]}>
+            <Clock size={18} className={styles["time-icon"]} />
             <div className={styles["time-text"]}>
               <span className={styles["date"]}>{formattedDate}</span>
               <span className={styles["time"]}>{formattedTime}</span>
             </div>
           </div>
-        </header>
+        }
+      />
 
-        <section className={styles["sa-welcome-banner"]}>
-          <div className={styles["welcome-content"]}>
-            <span className={styles["welcome-label"]}>WELCOME BACK</span>
-            <h2>{user?.username || "superadmin"}</h2>
-            <p>Your platform control center is ready. Select a module below to continue work.</p>
+      <section className={styles["welcome-banner"]}>
+        <div className={styles["welcome-content"]}>
+          <span className={styles["welcome-label"]}>WELCOME BACK</span>
+          <h2>{user?.username || "superadmin"}</h2>
+          <p>Your platform control center is ready. Select a module below to continue work.</p>
+        </div>
+        <div className={styles["welcome-profile"]}>
+          <div className={styles["profile-avatar"]}>
+            {(user?.username || "S")[0].toUpperCase()}
           </div>
-          <div className={styles["welcome-profile"]}>
-            <div className={styles["profile-avatar"]}>
-              {(user?.username || "S")[0].toUpperCase()}
-            </div>
-            <div className={styles["profile-info"]}>
-              <span>Logged in as</span>
-              <strong>{user?.username || "superadmin"}</strong>
-            </div>
+          <div className={styles["profile-info"]}>
+            <span>Logged in as</span>
+            <strong>{user?.username || "superadmin"}</strong>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className={styles["sa-stats-grid"]}>
-          <div className={styles["sa-stat-card"]}>
-            <div className={`${styles["sa-stat-icon-wrapper"]} ${styles["bg-light-blue"]}`}>
-              <Building2 size={22} className={styles["color-blue"]} />
-            </div>
-            <div className={styles["sa-stat-info"]}>
-              <p>Total Hotels</p>
-              <h2>{stats.totalHotels}</h2>
-            </div>
+      <section className={styles["stats-grid"]}>
+        <StatCard title="Total Hotels" value={stats.totalHotels} Icon={Building2} colorTheme="blue" />
+        <StatCard title="Active Hotels" value={stats.activeHotels} Icon={Hotel} colorTheme="green" />
+        <StatCard title="Hotel Users" value={stats.totalUsers} Icon={Users} colorTheme="orange" />
+        <StatCard title="System Status" value="Online" Icon={ShieldCheck} colorTheme="purple" />
+      </section>
+
+      <section className={styles["modules-section"]}>
+        <div className={styles["section-header"]}>
+          <div>
+            <h3>Modules</h3>
+            <p>Open any module to manage platform operations.</p>
           </div>
-
-          <div className={styles["sa-stat-card"]}>
-            <div className={`${styles["sa-stat-icon-wrapper"]} ${styles["bg-light-green"]}`}>
-              <Hotel size={22} className={styles["color-green"]} />
-            </div>
-            <div className={styles["sa-stat-info"]}>
-              <p>Active Hotels</p>
-              <h2>{stats.activeHotels}</h2>
-            </div>
+          <div className={styles["module-badge"]}>
+            {moduleCards.length} modules
           </div>
+        </div>
 
-          <div className={styles["sa-stat-card"]}>
-            <div className={`${styles["sa-stat-icon-wrapper"]} ${styles["bg-light-orange"]}`}>
-              <Users size={22} className={styles["color-orange"]} />
-            </div>
-            <div className={styles["sa-stat-info"]}>
-              <p>Hotel Users</p>
-              <h2>{stats.totalUsers}</h2>
-            </div>
-          </div>
-
-          <div className={styles["sa-stat-card"]}>
-            <div className={`${styles["sa-stat-icon-wrapper"]} ${styles["bg-light-purple"]}`}>
-              <ShieldCheck size={22} className={styles["color-purple"]} />
-            </div>
-            <div className={styles["sa-stat-info"]}>
-              <p>System Status</p>
-              <h2 className={styles["status-online"]}>Online</h2>
-            </div>
-          </div>
-        </section>
-
-        <section className={styles["sa-modules-section"]}>
-          <div className={styles["sa-modules-header"]}>
-            <div>
-              <h3>Modules</h3>
-              <p>Open any module to manage platform operations.</p>
-            </div>
-            <div className={styles["module-badge"]}>
-              {moduleCards.length} modules
-            </div>
-          </div>
-
-          <div className={styles["sa-modules-grid"]}>
-            {moduleCards.map((mod) => (
-              <div 
-                key={mod.path} 
-                className={styles["sa-module-card"]}
-                onClick={() => navigate(mod.path)}
-              >
-                <div className={`${styles["module-icon-wrapper"]} ${mod.iconClass}`}>
-                  <mod.icon size={24} />
-                </div>
-                <div className={styles["module-content"]}>
-                  <h4>{mod.label}</h4>
-                </div>
-                <ArrowRight size={20} className={styles["module-arrow"]} />
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* BROADCAST ANNOUNCEMENT PUBLISHER */}
-        <section className={styles["broadcast-section"]}>
-          <div className={styles["broadcast-header"]}>
-            <div className={styles["broadcast-icon"]}>
-              <Megaphone size={20} />
-            </div>
-            <div>
-              <h3>Broadcast Global Update Alert</h3>
-              <p>Push a real-time banner alert to every hotel dashboard on the network.</p>
-            </div>
-          </div>
-
-          {/* NEW: Inline Success / Error Message */}
-          {toast.show && (
-            <div className={`${styles["software-toast"]} ${styles[toast.type]}`}>
-              {toast.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-              <span>{toast.message}</span>
-            </div>
-          )}
-
-          <form onSubmit={handlePublishAlert} className={styles["broadcast-form"]}>
-            <div className={styles["form-row"]}>
-              <div className={styles["form-group"]}>
-                <label>Alert Title</label>
-                <input 
-                  required 
-                  type="text" 
-                  placeholder="e.g., New Feature: Salary Advances Released!" 
-                  value={alertForm.title} 
-                  onChange={e => setAlertForm({...alertForm, title: e.target.value})}
-                  className={styles["form-input"]}
-                />
-              </div>
-              
-              <div className={styles["form-group"]}>
-                <label>Banner Color (Type)</label>
-                <select 
-                  value={alertForm.alert_type} 
-                  onChange={e => setAlertForm({...alertForm, alert_type: e.target.value})}
-                  className={styles["form-select"]}
-                >
-                  <option value="info">Info (Blue)</option>
-                  <option value="success">Success (Green)</option>
-                  <option value="warning">Warning (Orange)</option>
-                  <option value="critical">Critical (Red)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className={styles["form-group"]}>
-              <label>Alert Message</label>
-              <textarea 
-                required 
-                placeholder="Type the full details of the update here..." 
-                rows="2"
-                value={alertForm.message} 
-                onChange={e => setAlertForm({...alertForm, message: e.target.value})}
-                className={styles["form-textarea"]}
+        <div className={styles["modules-grid"]}>
+          {moduleCards.map((mod) => (
+            <div 
+              key={mod.title} 
+              className={styles["module-wrapper"]}
+            >
+              <ModuleCard
+                title={mod.title}
+                Icon={mod.icon}
+                colorTheme={mod.colorTheme}
+                onClick={() => {
+                  if (mod.action) {
+                    mod.action();
+                  } else {
+                    navigate(mod.path);
+                  }
+                }}
               />
             </div>
+          ))}
+        </div>
+      </section>
 
-            <div className={styles["form-actions"]}>
-              <button 
-                type="submit" 
-                disabled={isPublishing} 
-                className={styles["btn-publish"]}
-              >
-                <Send size={16} /> 
-                {isPublishing ? "Publishing..." : "Push Alert to All Hotels"}
-              </button>
+      {/* BROADCAST ANNOUNCEMENT MODAL */}
+      {showBroadcastModal && (
+        <div className={styles["modal-backdrop"]}>
+          <div className={styles["modal-container"]}>
+            <button 
+              onClick={() => setShowBroadcastModal(false)}
+              className={styles["modal-close-btn"]}
+            >
+              <X size={20} />
+            </button>
+
+            <div className={styles["broadcast-section"]}>
+              <div className={styles["broadcast-header"]}>
+                <div className={styles["broadcast-icon"]}>
+                  <Megaphone size={20} />
+                </div>
+                <div>
+                  <h3>Broadcast Global Update Alert</h3>
+                  <p>Push a real-time banner alert to every hotel dashboard on the network.</p>
+                </div>
+              </div>
+
+              {toast.show && (
+                <div className={`${styles["software-toast"]} ${styles[toast.type]}`}>
+                  {toast.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                  <span>{toast.message}</span>
+                </div>
+              )}
+
+              <form onSubmit={handlePublishAlert} className={styles["broadcast-form"]}>
+                <div className={styles["form-row"]}>
+                  <div className={styles["form-group"]}>
+                    <label>Alert Title</label>
+                    <input 
+                      required 
+                      type="text" 
+                      placeholder="e.g., New Feature: Salary Advances Released!" 
+                      value={alertForm.title} 
+                      onChange={e => setAlertForm({...alertForm, title: e.target.value})}
+                      className={styles["form-input"]}
+                    />
+                  </div>
+                  
+                  <div className={styles["form-group"]}>
+                    <label>Banner Color (Type)</label>
+                    <select 
+                      value={alertForm.alert_type} 
+                      onChange={e => setAlertForm({...alertForm, alert_type: e.target.value})}
+                      className={styles["form-select"]}
+                    >
+                      <option value="info">Info (Blue)</option>
+                      <option value="success">Success (Green)</option>
+                      <option value="warning">Warning (Orange)</option>
+                      <option value="critical">Critical (Red)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className={styles["form-group"]}>
+                  <label>Alert Message</label>
+                  <textarea 
+                    required 
+                    placeholder="Type the full details of the update here..." 
+                    rows="3"
+                    value={alertForm.message} 
+                    onChange={e => setAlertForm({...alertForm, message: e.target.value})}
+                    className={styles["form-textarea"]}
+                  />
+                </div>
+
+                <div className={styles["form-actions"]}>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowBroadcastModal(false)}
+                    className={styles["btn-secondary"]}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={isPublishing} 
+                    className={styles["btn-publish"]}
+                  >
+                    <Send size={16} /> 
+                    {isPublishing ? "Publishing..." : "Push Alert to All Hotels"}
+                  </button>
+                </div>
+              </form>
             </div>
-          </form>
-        </section>
+          </div>
+        </div>
+      )}
 
-      </main>
     </div>
   );
 }

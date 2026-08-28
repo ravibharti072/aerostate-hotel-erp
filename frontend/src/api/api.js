@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API_BASE_URL = "https://api.aerostatelab.com";
+// Vite automatically pulls the local URL during 'npm run dev' and the production URL during 'npm run build'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.aerostatelab.com";
 
 const api = axios.create({
   baseURL: API_BASE_URL,

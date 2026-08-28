@@ -8,6 +8,7 @@ import LoginPage from "../modules/auth/LoginPage";
 import SuperAdminLoginPage from "../modules/auth/SuperAdminLoginPage";
 
 import Sidebar from "../layouts/Sidebar";
+import SuperAdminLayout from "../layouts/SuperAdminLayout";
 
 import DashboardPage from "../modules/dashboard/DashboardPage";
 
@@ -30,7 +31,7 @@ import RoomStatusPage from "../modules/departments/rooms/status/RoomStatusPage.j
 // REPORTS IMPORTS
 import ReportsPage from "../modules/departments/reports/ReportsPage";
 
-// RESTAURANT IMPORTS (Organized into Respective Folders)
+// RESTAURANT IMPORTS
 import RestaurantPage from "../modules/departments/restaurant/RestaurantPage.jsx";
 import RestaurantMenuItemsPage from "../modules/departments/restaurant/menuItems/RestaurantMenuItemsPage.jsx";
 import RestaurantOrdersPage from "../modules/departments/restaurant/orders/RestaurantOrdersPage.jsx";
@@ -48,7 +49,7 @@ import HousekeepingMaintenancePage from "../modules/departments/housekeeping/mai
 import HousekeepingReportsPage from "../modules/departments/housekeeping/reports/HousekeepingReportsPage.jsx";
 import HousekeepingAssignedWorkPage from "../modules/departments/housekeeping/assignedWork/HousekeepingAssignedWorkPage.jsx";
 
-// MAINTENANCE PORTAL & SUB-MODULES
+// MAINTENANCE PORTAL
 import MaintenancePortalPage from "../modules/departments/maintenance/MaintenancePortalPage.jsx";
 
 // STAFF IMPORTS
@@ -58,7 +59,7 @@ import StaffAttendancePage from "../modules/staff/attendance/StaffAttendancePage
 import StaffPayrollPage from "../modules/staff/payroll/StaffPayrollPage.jsx";
 import StaffSalaryPage from "../modules/staff/payroll/StaffSalaryPage.jsx"; 
 import StaffLeavePage from "../modules/staff/leave/StaffLeavePage.jsx";
-import BiometricLogsPage from "../modules/staff/biometric/BiometricLogsPage.jsx"; // <-- NEW IMPORT
+import BiometricLogsPage from "../modules/staff/biometric/BiometricLogsPage.jsx";
 
 // ACCOUNTS IMPORTS
 import AccountsPortalPage from "../modules/accounts/AccountsPortalPage.jsx";
@@ -72,12 +73,13 @@ import AlertDetailPage from "../modules/alerts/AlertDetailPage.jsx";
 
 // SUPER ADMIN IMPORTS
 import SuperAdminDashboardPage from "../modules/superAdmin/SuperAdminDashboardPage";
-import HotelOnboardPage from "../modules/superAdmin/HotelOnboardPage";
-import CreateCredentialPage from "../modules/superAdmin/CreateCredentialPage";
-import SubscriptionManagementPage from "../modules/superAdmin/SubscriptionManagementPage";
-import AssignModulePage from "../modules/superAdmin/AssignModulePage";
-import HotelsManagementPage from "../modules/superAdmin/HotelsManagementPage";
+import HotelOnboardPage from "../modules/superAdmin/hotelOnboard/HotelOnboardPage"; 
+import CreateCredentialPage from "../modules/superAdmin/createCredential/CreateCredentialPage"; 
+import SubscriptionManagementPage from "../modules/superAdmin/subscriptions/SubscriptionManagementPage"; 
+import AssignModulePage from "../modules/superAdmin/assignModule/AssignModulePage";
+import HotelsDirectoryPage from "../modules/superAdmin/hotels/HotelsDirectoryPage"; 
 import HotelUsersPage from "../modules/superAdmin/users/HotelUsersPage";
+import SuperAdminSettingsPage from "../modules/superAdmin/settings/SuperAdminSettingsPage"; // <-- NEW IMPORT
 
 function PlaceholderPage({ title }) {
   return (
@@ -109,6 +111,7 @@ export default function AppRoutes() {
         }
       />
 
+      {/* --- HOTEL ADMIN LAYOUT --- */}
       <Route
         element={
           <ProtectedRoute>
@@ -117,8 +120,6 @@ export default function AppRoutes() {
         }
       >
         <Route path="/dashboard" element={<DashboardPage />} />
-
-        {/* Front Desk */}
         <Route path="/front-desk" element={<FrontDeskPage />} />
         <Route path="/guests" element={<GuestsPage />} />
         <Route path="/bookings" element={<BookingsPage />} />
@@ -126,23 +127,16 @@ export default function AppRoutes() {
         <Route path="/guest-services" element={<GuestServicesPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/payments" element={<PaymentsPage />} />
-
-        {/* Front Desk Reports Hub & Sub-Routes */}
         <Route path="/reports/front-desk" element={<FrontDeskReportsPage />} />
         <Route path="/reports/front-desk/bookings" element={<AllBookingsReport />} />
         <Route path="/reports/front-desk/check-ins" element={<PlaceholderPage title="Check-In / Out Report" />} />
         <Route path="/reports/front-desk/invoices" element={<PlaceholderPage title="Invoices & Revenue Report" />} />
         <Route path="/reports/front-desk/payments" element={<PlaceholderPage title="Payments & Collections Report" />} />
-
         <Route path="/check-in" element={<Navigate to="/check-in-out" replace />} />
         <Route path="/check-out" element={<Navigate to="/check-in-out" replace />} />
-
-        {/* Rooms Portal & Sub-routes */}
         <Route path="/rooms" element={<RoomsPage />} />
         <Route path="/rooms/add" element={<AddRoomPage />} />
         <Route path="/room-status" element={<RoomStatusPage />} />
-
-        {/* Restaurant */}
         <Route path="/restaurant" element={<RestaurantPage />} />
         <Route path="/restaurant/menu-items" element={<RestaurantMenuItemsPage />} />
         <Route path="/restaurant/orders" element={<RestaurantOrdersPage />} />
@@ -151,16 +145,12 @@ export default function AppRoutes() {
         <Route path="/restaurant/tables" element={<RestaurantTableManagementPage />} />
         <Route path="/restaurant/billing" element={<RestaurantBillingPage />} />
         <Route path="/restaurant/reports" element={<RestaurantReportsPage />} />
-
-        {/* Housekeeping Portal & Sub-modules */}
         <Route path="/housekeeping" element={<HousekeepingPortalPage />} />
         <Route path="/housekeeping/tasks" element={<HousekeepingPage />} />
         <Route path="/housekeeping/checkout-cleaning" element={<CheckoutCleaningPage />} />
         <Route path="/housekeeping/maintenance" element={<HousekeepingMaintenancePage />} />
         <Route path="/housekeeping/reports" element={<HousekeepingReportsPage />} />
         <Route path="/housekeeping/assigned-work" element={<HousekeepingAssignedWorkPage />} />
-
-        {/* Maintenance Portal & Sub-modules */}
         <Route path="/maintenance" element={<MaintenancePortalPage />} />
         <Route path="/maintenance/requests" element={<MaintenancePortalPage />} />
         <Route path="/maintenance/create" element={<MaintenancePortalPage />} />
@@ -168,107 +158,45 @@ export default function AppRoutes() {
         <Route path="/maintenance/guest-raised" element={<MaintenancePortalPage />} />
         <Route path="/maintenance/schedule" element={<MaintenancePortalPage />} />
         <Route path="/maintenance/reports" element={<MaintenancePortalPage />} />
-
         <Route path="/inventory" element={<PlaceholderPage title="Inventory" />} />
-        
-        {/* ACCOUNTS & FINANCIALS */}
         <Route path="/accounts" element={<AccountsPortalPage />} />
         <Route path="/accounts/salary-payout" element={<SalaryPayoutPage />} />
         <Route path="/accounts/salary-advances" element={<SalaryAdvancesPage />} />
-        
-        {/* STAFF & HR */}
         <Route path="/staff" element={<StaffPage />} />
         <Route path="/staff/directory" element={<StaffDirectoryPage />} />
         <Route path="/staff/attendance" element={<StaffAttendancePage />} />
-        
-        {/* --- SALARY & PAYROLL --- */}
         <Route path="/staff/salary-structure" element={<StaffSalaryPage />} />
         <Route path="/staff/salaries" element={<StaffPayrollPage />} />
-        
         <Route path="/staff/leaves" element={<StaffLeavePage />} />
-        <Route path="/staff/biometric-logs" element={<BiometricLogsPage />} /> {/* <-- NEW ROUTE */}
-        
+        <Route path="/staff/biometric-logs" element={<BiometricLogsPage />} />
         <Route path="/procurement" element={<PlaceholderPage title="Procurement" />} />
         <Route path="/reports" element={<ReportsPage />} />
-
-        {/* SYSTEM & SETTINGS */}
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/alerts" element={<AlertsListPage />} />
         <Route path="/alerts/details" element={<AlertDetailPage />} />
       </Route>
 
+      {/* --- SUPER ADMIN NESTED LAYOUT --- */}
       <Route
         path="/super-admin"
         element={
           <SuperAdminRoute>
-            <Navigate to="/super-admin/dashboard" replace />
+            <SuperAdminLayout />
           </SuperAdminRoute>
         }
-      />
+      >
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<SuperAdminDashboardPage />} />
+        <Route path="hotel-onboard" element={<HotelOnboardPage />} />
+        <Route path="create-credential" element={<CreateCredentialPage />} />
+        <Route path="subscriptions" element={<SubscriptionManagementPage />} />
+        <Route path="assign-module" element={<AssignModulePage />} />
+        <Route path="hotels" element={<HotelsDirectoryPage />} />
+        <Route path="users" element={<HotelUsersPage />} />
+        <Route path="settings" element={<SuperAdminSettingsPage />} /> {/* <-- NEW ROUTE */}
+      </Route>
 
-      <Route
-        path="/super-admin/dashboard"
-        element={
-          <SuperAdminRoute>
-            <SuperAdminDashboardPage />
-          </SuperAdminRoute>
-        }
-      />
-
-      <Route
-        path="/super-admin/hotel-onboard"
-        element={
-          <SuperAdminRoute>
-            <HotelOnboardPage />
-          </SuperAdminRoute>
-        }
-      />
-
-      <Route
-        path="/super-admin/create-credential"
-        element={
-          <SuperAdminRoute>
-            <CreateCredentialPage />
-          </SuperAdminRoute>
-        }
-      />
-
-      <Route
-        path="/super-admin/subscriptions"
-        element={
-          <SuperAdminRoute>
-            <SubscriptionManagementPage />
-          </SuperAdminRoute>
-        }
-      />
-
-      <Route
-        path="/super-admin/assign-module"
-        element={
-          <SuperAdminRoute>
-            <AssignModulePage />
-          </SuperAdminRoute>
-        }
-      />
-
-      <Route
-        path="/super-admin/hotels"
-        element={
-          <SuperAdminRoute>
-            <HotelsManagementPage />
-          </SuperAdminRoute>
-        }
-      />
-
-      <Route
-        path="/super-admin/users"
-        element={
-          <SuperAdminRoute>
-            <HotelUsersPage />
-          </SuperAdminRoute>
-        }
-      />
-
+      {/* FALLBACKS */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
