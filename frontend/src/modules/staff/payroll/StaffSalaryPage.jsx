@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../../context/AuthContext";
+import api from "@api/api";
 import { 
   CreditCard,
   Banknote, 
@@ -13,9 +14,9 @@ import {
   Download,
   Shield
 } from "lucide-react";
-import PortalHeader from "../../../components/PortalHeader";
-import StatCard from "../../../components/StatCard"; 
-import ModuleWriternHeader from "../../../components/ModuleWriternHeader";
+import PortalHeader from "../../../components/headers/PortalHeader";
+import StatCard from "../../../components/cards/StatCard"; 
+import ModuleWriternHeader from "../../../components/headers/ModuleWriternHeader";
 import "./staffSalary.css";
 
 export default function StaffSalaryPage() {
@@ -49,22 +50,12 @@ export default function StaffSalaryPage() {
     setIsLoading(true);
     try {
       // 1. Fetch active staff
-      const staffRes = await fetch("http://localhost:8000/staff", { 
-        headers: { Authorization: `Bearer ${token}` } 
-      });
-      if (staffRes.ok) {
-        const data = await staffRes.json();
-        setStaffList(Array.isArray(data) ? data : []);
-      }
+      const staffRes = await api.get("/staff");
+      setStaffList(Array.isArray(staffRes.data) ? staffRes.data : []);
       
       // 2. Fetch salary structures
-      const structRes = await fetch("http://localhost:8000/staff-salary-structures", { 
-        headers: { Authorization: `Bearer ${token}` } 
-      });
-      if (structRes.ok) {
-        const structData = await structRes.json();
-        setSalaryStructures(structData || {});
-      }
+      const structRes = await api.get("/staff-salary-structures");
+      setSalaryStructures(structRes.data || {});
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -135,20 +126,14 @@ export default function StaffSalaryPage() {
     };
 
     try {
-      const response = await fetch("http://localhost:8000/staff-salary-structures", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
-      if (response.ok) {
-        fetchData();
-        setModalType(null);
-      } else {
-        const err = await response.json();
-        alert(`Failed to save: ${JSON.stringify(err.detail || err)}`);
-      }
+      await api.post("/staff-salary-structures", payload);
+      fetchData();
+      setModalType(null);
     } catch (error) {
-      console.error(error);
+      console.error("Error saving contract structure:", error);
+      const detail = error.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail : (Array.isArray(detail) ? detail.map((d) => d.msg).join(", ") : "Failed to save salary structure.");
+      alert(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -198,20 +183,14 @@ export default function StaffSalaryPage() {
     };
 
     try {
-      const response = await fetch("http://localhost:8000/staff-salary-structures", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
-      if (response.ok) {
-        fetchData();
-        setModalType(null);
-      } else {
-        const err = await response.json();
-        alert(`Failed to save: ${JSON.stringify(err.detail || err)}`);
-      }
+      await api.post("/staff-salary-structures", payload);
+      fetchData();
+      setModalType(null);
     } catch (error) {
-      console.error(error);
+      console.error("Error saving permanent structure:", error);
+      const detail = error.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail : (Array.isArray(detail) ? detail.map((d) => d.msg).join(", ") : "Failed to save salary structure.");
+      alert(msg);
     } finally {
       setIsSubmitting(false);
     }

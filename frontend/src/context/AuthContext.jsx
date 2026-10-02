@@ -8,8 +8,9 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(localStorage.getItem("hotel_erp_token"));
   const [loading, setLoading] = useState(true);
   
-  // --- NEW: Global state for the Go-Live Date ---
+  // --- NEW: Global state for the Go-Live Date and Hotel Info ---
   const [goLiveDate, setGoLiveDate] = useState(null);
+  const [hotelInfo, setHotelInfo] = useState(null);
 
   // Helper function to check if a hotel admin account is expired or inactive
   const validateSubscriptionOrStatus = (userData) => {
@@ -37,6 +38,18 @@ export function AuthProvider({ children }) {
     return true;
   };
 
+  // Helper to fetch hotel details from backend
+  const fetchHotelInfo = async (hotelId) => {
+    if (!hotelId) return null;
+    try {
+      const res = await api.get(`/hotels/${hotelId}`);
+      return res.data;
+    } catch (error) {
+      console.warn("Failed to fetch hotel details", error);
+      return null;
+    }
+  };
+
   // --- NEW: Helper to fetch the Go-Live Date for the user's hotel ---
   const fetchGoLiveDate = async (hotelId) => {
     if (!hotelId) return null;
@@ -51,6 +64,21 @@ export function AuthProvider({ children }) {
       console.error("Failed to fetch go-live date", error);
       return null;
     }
+  };
+
+  const updateHotelInfo = (newHotelData) => {
+    if (!newHotelData) return;
+    setHotelInfo((prev) => ({ ...(prev || {}), ...newHotelData }));
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        hotel_name: newHotelData.name || prev.hotel_name,
+        hotel: { ...(prev.hotel || {}), ...newHotelData },
+      };
+      localStorage.setItem("hotel_erp_user", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const login = async (username, password) => {
@@ -71,11 +99,18 @@ export function AuthProvider({ children }) {
 
     setToken(data.access_token);
     setUser(data);
+    if (data.hotel) {
+      setHotelInfo(data.hotel);
+    }
 
-    // --- NEW: Fetch and set Go-Live Date on login ---
+    // Fetch and set Go-Live Date & Hotel Info on login
     if (data.hotel_id) {
-      const glDate = await fetchGoLiveDate(data.hotel_id);
+      const [glDate, hData] = await Promise.all([
+        fetchGoLiveDate(data.hotel_id),
+        data.hotel ? Promise.resolve(data.hotel) : fetchHotelInfo(data.hotel_id),
+      ]);
       setGoLiveDate(glDate);
+      if (hData) setHotelInfo(hData);
     }
 
     return data;
@@ -87,7 +122,8 @@ export function AuthProvider({ children }) {
 
     setToken(null);
     setUser(null);
-    setGoLiveDate(null); // Clear on logout
+    setGoLiveDate(null);
+    setHotelInfo(null);
   };
 
   const loadUser = async () => {
@@ -98,13 +134,20 @@ export function AuthProvider({ children }) {
       if (!savedToken) {
         setUser(null);
         setGoLiveDate(null);
+        setHotelInfo(null);
         setLoading(false);
         return;
       }
 
       let activeUser = null;
       if (savedUser) {
-        activeUser = JSON.parse(savedUser);
+        try {
+          activeUser = JSON.parse(savedUser);
+          setUser(activeUser);
+          if (activeUser.hotel) setHotelInfo(activeUser.hotel);
+        } catch (e) {
+          console.error("Failed to parse saved user", e);
+        }
       }
 
       const response = await api.get("/auth/me");
@@ -118,11 +161,17 @@ export function AuthProvider({ children }) {
       }
 
       setUser(activeUser);
+      if (activeUser.hotel) setHotelInfo(activeUser.hotel);
+      localStorage.setItem("hotel_erp_user", JSON.stringify(activeUser));
 
-      // --- NEW: Fetch and set Go-Live Date on page reload ---
+      // Fetch and set Go-Live Date & Hotel Info on page reload
       if (activeUser.hotel_id) {
-        const glDate = await fetchGoLiveDate(activeUser.hotel_id);
+        const [glDate, hData] = await Promise.all([
+          fetchGoLiveDate(activeUser.hotel_id),
+          fetchHotelInfo(activeUser.hotel_id),
+        ]);
         setGoLiveDate(glDate);
+        if (hData) setHotelInfo(hData);
       }
 
     } catch (error) {
@@ -136,13 +185,17 @@ export function AuthProvider({ children }) {
     loadUser();
   }, []);
 
+  const effectiveHotel = hotelInfo || user?.hotel || (user?.hotel_name ? { name: user.hotel_name } : null);
+
   return (
     <AuthContext.Provider
       value={{
         user,
         token,
         loading,
-        goLiveDate, // Expose to the rest of the app!
+        goLiveDate,
+        hotelInfo: effectiveHotel,
+        updateHotelInfo,
         login,
         logout,
         isAuthenticated: Boolean(token),
@@ -151,6 +204,7 @@ export function AuthProvider({ children }) {
       {children}
     </AuthContext.Provider>
   );
+
 }
 
 export function useAuth() {

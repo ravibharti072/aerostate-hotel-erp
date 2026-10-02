@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../../context/AuthContext";
+import api from "@api/api";
 import { 
   Banknote, 
   Search, 
@@ -15,8 +16,9 @@ import {
   Clock,
   Lock
 } from "lucide-react";
-import PortalHeader from "../../../components/PortalHeader";
-import StatCard from "../../../components/StatCard"; 
+import PortalHeader from "../../../components/headers/PortalHeader";
+import StatCard from "../../../components/cards/StatCard"; 
+import { DEPARTMENT_OPTIONS, formatDepartment } from "../directory/StaffDirectoryPage";
 import "./staffPayroll.css";
 
 export default function StaffPayrollPage() {
@@ -62,41 +64,27 @@ export default function StaffPayrollPage() {
     if (!token) return;
     setIsLoading(true);
     try {
-      const staffRes = await fetch("http://localhost:8000/staff", { headers: { Authorization: `Bearer ${token}` } });
-      if (staffRes.ok) {
-        const data = await staffRes.json();
-        setStaffList(Array.isArray(data) ? data : []);
-      }
-      
-      const attRes = await fetch(`http://localhost:8000/staff-attendance`, { headers: { Authorization: `Bearer ${token}` } });
-      if (attRes.ok) {
-         const attData = await attRes.json();
-         setAttendanceRecords(Array.isArray(attData) ? attData : []);
-      }
+      const [staffRes, attRes, leaveRes, structRes, payrollRes] = await Promise.all([
+        api.get("/staff"),
+        api.get("/staff-attendance"),
+        api.get("/staff-leaves"),
+        api.get("/staff-salaries"),
+        api.get(`/staff-payroll?month=${selectedMonth}`)
+      ]);
 
-      const leaveRes = await fetch("http://localhost:8000/staff-leaves", { headers: { Authorization: `Bearer ${token}` } });
-      if (leaveRes.ok) {
-        const leaveData = await leaveRes.json();
-        setLeaveRecords(Array.isArray(leaveData) ? leaveData : []);
-      }
+      setStaffList(Array.isArray(staffRes.data) ? staffRes.data : []);
+      setAttendanceRecords(Array.isArray(attRes.data) ? attRes.data : []);
+      setLeaveRecords(Array.isArray(leaveRes.data) ? leaveRes.data : []);
+      setSalaryStructures(structRes.data || {});
 
-      const structRes = await fetch(`http://localhost:8000/staff-salaries`, { headers: { Authorization: `Bearer ${token}` } });
-      if (structRes.ok) {
-         const structData = await structRes.json();
-         setSalaryStructures(structData || {});
+      const payrollData = payrollRes.data;
+      const mappedRecords = {};
+      if (Array.isArray(payrollData)) {
+        payrollData.forEach((r) => { mappedRecords[r.staff_id] = r; });
+      } else if (payrollData && typeof payrollData === "object") {
+        Object.assign(mappedRecords, payrollData);
       }
-
-      const payrollRes = await fetch(`http://localhost:8000/staff-payroll?month=${selectedMonth}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (payrollRes.ok) {
-         const payrollData = await payrollRes.json();
-         const mappedRecords = {};
-         if (Array.isArray(payrollData)) {
-           payrollData.forEach(r => { mappedRecords[r.staff_id] = r; });
-         } else if (typeof payrollData === 'object') {
-           Object.assign(mappedRecords, payrollData);
-         }
-         setPayrollRecordsObj(mappedRecords);
-      }
+      setPayrollRecordsObj(mappedRecords);
       
     } catch (error) {
       console.error("Error fetching data from backend:", error);
@@ -115,22 +103,14 @@ export default function StaffPayrollPage() {
 
   const handleProcessPayroll = async () => {
     try {
-      const response = await fetch("http://localhost:8000/staff-payroll/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ month: selectedMonth })
-      });
-
-      if (response.ok) {
-        showToast(`Payroll successfully processed for ${selectedMonth} by backend.`, "success");
-        fetchData(); 
-      } else {
-        const err = await response.json();
-        showToast(err.detail || "Backend failed to process payroll.", "info");
-      }
+      await api.post("/staff-payroll/process", { month: selectedMonth });
+      showToast(`Payroll successfully processed for ${selectedMonth} by backend.`, "success");
+      fetchData(); 
     } catch (error) {
       console.error("Error calling backend process payroll:", error);
-      showToast("Network error while communicating with backend.", "info");
+      const detail = error.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail : (Array.isArray(detail) ? detail.map((d) => d.msg).join(", ") : "Backend failed to process payroll.");
+      showToast(msg, "info");
     }
   };
 
@@ -140,22 +120,18 @@ export default function StaffPayrollPage() {
     if (!record) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/staff-payroll/${record.id || confirmFinalizeStaffId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: 'Finalized', month: selectedMonth, staff_id: confirmFinalizeStaffId })
+      await api.put(`/staff-payroll/${record.id || confirmFinalizeStaffId}`, {
+        status: 'Finalized',
+        month: selectedMonth,
+        staff_id: confirmFinalizeStaffId
       });
-
-      if (response.ok) {
-        showToast("Payroll finalized and locked permanently by backend.", "success");
-        setConfirmFinalizeStaffId(null);
-        fetchData();
-        setViewModalData(null);
-      } else {
-        showToast("Failed to finalize on backend.", "info");
-      }
+      showToast("Payroll finalized and locked permanently by backend.", "success");
+      setConfirmFinalizeStaffId(null);
+      fetchData();
+      setViewModalData(null);
     } catch (error) {
       console.error("Error finalizing payroll:", error);
+      showToast("Failed to finalize on backend.", "info");
     }
   };
 
@@ -164,21 +140,17 @@ export default function StaffPayrollPage() {
     if (!record) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/staff-payroll/${record.id || staffId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: newStatus, month: selectedMonth, staff_id: staffId })
+      await api.put(`/staff-payroll/${record.id || staffId}`, {
+        status: newStatus,
+        month: selectedMonth,
+        staff_id: staffId
       });
-
-      if (response.ok) {
-        showToast(`Payroll status updated to ${newStatus}.`, "success");
-        fetchData();
-        setViewModalData(null);
-      } else {
-        showToast("Failed to update status on backend.", "info");
-      }
+      showToast(`Payroll status updated to ${newStatus}.`, "success");
+      fetchData();
+      setViewModalData(null);
     } catch (error) {
       console.error("Error updating status:", error);
+      showToast("Failed to update status on backend.", "info");
     }
   };
 
@@ -190,28 +162,20 @@ export default function StaffPayrollPage() {
     const record = viewModalData.record;
 
     try {
-      const response = await fetch(`http://localhost:8000/staff-payroll/${record.id || viewModalData.staff.id}/adjustments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          type: adjustForm.type,
-          amount: amount,
-          reason: adjustForm.reason,
-          month: selectedMonth
-        })
+      await api.post(`/staff-payroll/${record.id || viewModalData.staff.id}/adjustments`, {
+        type: adjustForm.type,
+        amount: amount,
+        reason: adjustForm.reason,
+        month: selectedMonth
       });
-
-      if (response.ok) {
-        showToast("Adjustment saved to backend database.", "success");
-        setAdjustMode(false);
-        setAdjustForm({ amount: "", reason: "", type: "deduction" });
-        fetchData();
-        setViewModalData(null);
-      } else {
-        showToast("Failed to save adjustment.", "info");
-      }
+      showToast("Adjustment saved to backend database.", "success");
+      setAdjustMode(false);
+      setAdjustForm({ amount: "", reason: "", type: "deduction" });
+      fetchData();
+      setViewModalData(null);
     } catch (error) {
       console.error("Error saving adjustment:", error);
+      showToast("Failed to save adjustment.", "info");
     }
   };
 
@@ -444,10 +408,11 @@ export default function StaffPayrollPage() {
             </div>
             <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="payroll-filter-select">
               <option value="">All Departments</option>
-              <option value="front_desk">Front Desk</option>
-              <option value="housekeeping">Housekeeping</option>
-              <option value="restaurant">Restaurant</option>
-              <option value="maintenance">Maintenance</option>
+              {DEPARTMENT_OPTIONS.map((dept) => (
+                <option key={dept.value} value={dept.value}>
+                  {dept.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -491,7 +456,7 @@ export default function StaffPayrollPage() {
                         </div>
                       </td>
                       <td>
-                        <span className="dept-pill-badge">{staff.department?.replace('_', ' ') || "N/A"}</span>
+                        <span className="dept-pill-badge">{formatDepartment(staff.department)}</span>
                       </td>
                       
                       {activeTypeTab === 'permanent' ? (

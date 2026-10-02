@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
 import { User, Lock, Eye, EyeOff, ArrowRight, ShieldAlert } from "lucide-react";
-import "./login.css"; // Uses the same unified CSS file
+
+import { useAuth } from "@context/AuthContext";
+import "./login.css";
 
 export default function SuperAdminLoginPage() {
   const navigate = useNavigate();
@@ -70,17 +71,16 @@ export default function SuperAdminLoginPage() {
       {/* Right Light Section */}
       <div className="login-right">
         <div className="login-card">
-          
           <div className="login-card-header">
-             <div className="card-brand-logo">
-                <span className="square blue"></span>
-                <span className="square gray"></span>
-                <span className="square teal"></span>
-             </div>
-             <div className="card-brand-text">
-               <h3>Aerostate ERP</h3>
-               <span>Super Admin Portal</span>
-             </div>
+            <div className="card-brand-logo">
+              <span className="square blue"></span>
+              <span className="square gray"></span>
+              <span className="square teal"></span>
+            </div>
+            <div className="card-brand-text">
+              <h3>Aerostate ERP</h3>
+              <span>Super Admin Portal</span>
+            </div>
           </div>
 
           <div className="login-card-body">

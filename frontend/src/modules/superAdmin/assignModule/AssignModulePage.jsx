@@ -16,9 +16,9 @@ import {
   Plus
 } from "lucide-react";
 import api from "../../../api/api";
-import PortalHeader from "../../../components/PortalHeader";
-import StatCard from "../../../components/StatCard";
-import ModuleWriternHeader from "../../../components/ModuleWriternHeader";
+import PortalHeader from "../../../components/headers/PortalHeader";
+import StatCard from "../../../components/cards/StatCard";
+import ModuleWriternHeader from "../../../components/headers/ModuleWriternHeader";
 import styles from "./assignModule.module.css";
 
 export default function AssignModulePage() {

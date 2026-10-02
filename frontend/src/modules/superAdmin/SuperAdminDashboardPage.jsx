@@ -19,9 +19,9 @@ import {
 } from "lucide-react";
 import api from "../../api/api";
 import { useAuth } from "../../context/AuthContext";
-import PortalHeader from "../../components/PortalHeader";
-import StatCard from "../../components/StatCard";
-import ModuleCard from "../../components/ModuleCard";
+import PortalHeader from "../../components/headers/PortalHeader";
+import StatCard from "../../components/cards/StatCard";
+import ModuleCard from "../../components/cards/ModuleCard";
 import styles from "./superAdminDashboard.module.css";
 
 // Removed the SuperAdminSidebar import
@@ -33,17 +33,11 @@ export default function SuperAdminDashboardPage() {
   const [hotels, setHotels] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
 
   const [alertForm, setAlertForm] = useState({ title: "", message: "", alert_type: "info" });
   const [isPublishing, setIsPublishing] = useState(false);
   const [toast, setToast] = useState({ show: false, type: "", message: "" });
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   function normalizeList(data, key) {
     if (Array.isArray(data)) return data;
@@ -110,20 +104,6 @@ export default function SuperAdminDashboardPage() {
     }
   };
 
-  const formattedTime = currentTime.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-  
-  const formattedDate = currentTime.toLocaleDateString("en-US", {
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-
   const moduleCards = [
     { title: "Hotel Onboard", icon: Hotel, path: "/super-admin/hotel-onboard", colorTheme: "blue" },
     { title: "Create Credential", icon: Key, path: "/super-admin/create-credential", colorTheme: "purple" },
@@ -147,15 +127,7 @@ export default function SuperAdminDashboardPage() {
         kicker="PLATFORM MANAGEMENT"
         icon={Building2}
         showBack={false}
-        rightAction={
-          <div className={styles["time-widget"]}>
-            <Clock size={18} className={styles["time-icon"]} />
-            <div className={styles["time-text"]}>
-              <span className={styles["date"]}>{formattedDate}</span>
-              <span className={styles["time"]}>{formattedTime}</span>
-            </div>
-          </div>
-        }
+        isDashboard={true}
       />
 
       <section className={styles["welcome-banner"]}>

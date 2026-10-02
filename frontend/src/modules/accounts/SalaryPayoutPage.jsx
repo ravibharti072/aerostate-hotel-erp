@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
 import { 
   CalendarDays, 
   CheckCircle, 
@@ -15,9 +14,14 @@ import {
   Banknote,
   Users
 } from "lucide-react";
-import PortalHeader from "../../components/PortalHeader";
-import StatCard from "../../components/StatCard";
-import ModuleWriternHeader from "../../components/ModuleWriternHeader";
+
+import { useAuth } from "@context/AuthContext";
+import api from "@api/api";
+import { 
+  PortalHeader, 
+  StatCard, 
+  ModuleWriternHeader 
+} from "@components";
 import "./salaryPayout.css";
 
 export default function SalaryPayoutPage() {
@@ -49,16 +53,16 @@ export default function SalaryPayoutPage() {
     setIsLoading(true);
     try {
       const [staffRes, salaryRes] = await Promise.all([
-        fetch("http://localhost:8000/staff", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`http://localhost:8000/staff-payroll?month=${selectedMonth}`, { headers: { Authorization: `Bearer ${token}` } })
+        api.get("/staff"),
+        api.get(`/staff-payroll?month=${selectedMonth}`)
       ]);
 
-      if (staffRes.ok) setStaffList(await staffRes.json());
-      if (salaryRes.ok) {
-        const salaryData = await salaryRes.json();
-        const accountsData = salaryData.filter(s => s.status === "Finalized" || s.status === "Paid");
-        setSalaries(accountsData);
-      }
+      const staffData = Array.isArray(staffRes.data) ? staffRes.data : [];
+      setStaffList(staffData);
+
+      const salaryData = Array.isArray(salaryRes.data) ? salaryRes.data : [];
+      const accountsData = salaryData.filter(s => s.status === "Finalized" || s.status === "Paid");
+      setSalaries(accountsData);
     } catch (err) {
       console.error("Error fetching payout data:", err);
     } finally {
@@ -97,25 +101,14 @@ export default function SalaryPayoutPage() {
         remarks: disburseForm.remarks
       };
 
-      const res = await fetch(`http://localhost:8000/staff-payroll/${selectedSalary.id}`, {
-        method: "PUT",
-        headers: { 
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        setIsModalOpen(false);
-        fetchData(); 
-      } else {
-        const err = await res.json();
-        alert(err.detail || "Disbursement failed.");
-      }
+      await api.put(`/staff-payroll/${selectedSalary.id}`, payload);
+      setIsModalOpen(false);
+      fetchData(); 
     } catch (err) {
-      console.error(err);
-      alert("Network error occurred.");
+      console.error("Error disbursing salary:", err);
+      const detail = err.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail : (Array.isArray(detail) ? detail.map((d) => d.msg).join(", ") : "Disbursement failed.");
+      alert(msg);
     } finally {
       setIsSubmitting(false);
     }

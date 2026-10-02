@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
+import api from "@api/api";
 import {
   Fingerprint,
   CalendarDays,
@@ -14,9 +15,9 @@ import {
   AlertCircle,
   X
 } from "lucide-react";
-import PortalHeader from "../../../components/PortalHeader";
-import StatCard from "../../../components/StatCard";
-import ModuleWriternHeader from "../../../components/ModuleWriternHeader";
+import PortalHeader from "../../../components/headers/PortalHeader";
+import StatCard from "../../../components/cards/StatCard";
+import ModuleWriternHeader from "../../../components/headers/ModuleWriternHeader";
 import "./biometricLogs.css";
 
 export default function BiometricLogsPage() {
@@ -39,13 +40,9 @@ export default function BiometricLogsPage() {
     if (!token) return;
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/biometric/logs?date=${dateFilter}`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setLogs(Array.isArray(data) ? data : []);
-      }
+      const response = await api.get(`/biometric/logs?date=${dateFilter}`);
+      const data = response.data;
+      setLogs(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching biometric logs:", error);
     } finally {
@@ -71,21 +68,14 @@ export default function BiometricLogsPage() {
     setMessage("");
     
     try {
-      const response = await fetch(`http://localhost:8000/attendance-engine/process-daily?target_date_str=${dateFilter}`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok) {
-        setMessage(`Success: ${result.message}`);
-        setTimeout(() => setMessage(""), 5000);
-      } else {
-        setMessage(result.detail || "Failed to process attendance.");
-      }
+      const response = await api.post(`/attendance-engine/process-daily?target_date_str=${dateFilter}`);
+      setMessage(`Success: ${response.data.message || "Attendance processed successfully."}`);
+      setTimeout(() => setMessage(""), 5000);
     } catch (error) {
-      setMessage("Network error occurred while processing.");
+      console.error("Error processing attendance:", error);
+      const detail = error.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail : (Array.isArray(detail) ? detail.map((d) => d.msg).join(", ") : "Failed to process attendance.");
+      setMessage(msg);
     } finally {
       setIsProcessing(false);
     }

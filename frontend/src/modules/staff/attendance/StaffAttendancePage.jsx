@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext"; 
+import api from "@api/api";
 import { 
   ArrowLeft, 
   CalendarCheck, 
@@ -20,8 +21,8 @@ import {
   Layers,
   Lock
 } from "lucide-react";
-import PortalHeader from "../../../components/PortalHeader";
-import StatCard from "../../../components/StatCard"; // <-- Imported reusable component
+import PortalHeader from "../../../components/headers/PortalHeader";
+import StatCard from "../../../components/cards/StatCard"; // <-- Imported reusable component
 import "./staffAttendance.css";
 
 export default function StaffAttendancePage() {
@@ -89,34 +90,20 @@ export default function StaffAttendancePage() {
     setIsLoading(true);
 
     try {
-      const staffRes = await fetch("http://localhost:8000/staff", {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (staffRes.ok) {
-        const staffData = await staffRes.json();
-        setStaffList(Array.isArray(staffData) ? staffData : []);
-      }
-
-      let attendanceUrl = `http://localhost:8000/staff-attendance`;
+      const params = {};
       if (statusFilter && activeTab === 'list') {
-        attendanceUrl += `?status=${statusFilter}`;
+        params.status = statusFilter;
       }
 
-      const attRes = await fetch(attendanceUrl, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (attRes.ok) {
-        const attData = await attRes.json();
-        setAttendanceRecords(Array.isArray(attData) ? attData : []);
-      }
+      const [staffRes, attRes, leaveRes] = await Promise.all([
+        api.get("/staff"),
+        api.get("/staff-attendance", { params }),
+        api.get("/staff-leaves")
+      ]);
 
-      const leaveRes = await fetch("http://localhost:8000/staff-leaves", {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (leaveRes.ok) {
-        const leaveData = await leaveRes.json();
-        setLeaveRecords(Array.isArray(leaveData) ? leaveData : []);
-      }
+      setStaffList(Array.isArray(staffRes.data) ? staffRes.data : []);
+      setAttendanceRecords(Array.isArray(attRes.data) ? attRes.data : []);
+      setLeaveRecords(Array.isArray(leaveRes.data) ? leaveRes.data : []);
 
     } catch (error) {
       console.error("Error fetching attendance/leave data:", error);
@@ -167,21 +154,13 @@ export default function StaffAttendancePage() {
         payload.check_out_time = formatDateTime(payload.attendance_date, formData.check_out_time);
       }
 
-      const response = await fetch("http://localhost:8000/staff-attendance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        closeModal();
-        fetchData(); 
-      } else {
-        const errorData = await response.json();
-        setErrorMessage(errorData.detail || "Failed to mark attendance.");
-      }
+      await api.post("/staff-attendance", payload);
+      closeModal();
+      fetchData(); 
     } catch (error) {
-      setErrorMessage("Network error occurred.");
+      const detail = error.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail : (Array.isArray(detail) ? detail.map((d) => d.msg).join(", ") : "Failed to mark attendance.");
+      setErrorMessage(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -222,12 +201,7 @@ export default function StaffAttendancePage() {
           remarks: bulkData.remarks
         };
 
-        await fetch("http://localhost:8000/staff-attendance", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-          body: JSON.stringify(payload)
-        });
-
+        await api.post("/staff-attendance", payload);
         currentDate.setDate(currentDate.getDate() + 1);
       }
 
@@ -243,18 +217,12 @@ export default function StaffAttendancePage() {
   const handleDeleteAttendance = async (id) => {
     if (!window.confirm("Are you sure you want to delete this attendance record?")) return;
     try {
-      const response = await fetch(`http://localhost:8000/staff-attendance/${id}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (response.ok) {
-        setSelectedRecords(prev => prev.filter(rId => rId !== id));
-        fetchData();
-      } else {
-        alert("Failed to delete attendance record.");
-      }
+      await api.delete(`/staff-attendance/${id}`);
+      setSelectedRecords(prev => prev.filter(rId => rId !== id));
+      fetchData();
     } catch (error) {
       console.error("Error deleting attendance:", error);
+      alert("Failed to delete attendance record.");
     }
   };
 
@@ -264,10 +232,7 @@ export default function StaffAttendancePage() {
     setIsSubmitting(true);
     try {
       for (const id of selectedRecords) {
-        await fetch(`http://localhost:8000/staff-attendance/${id}`, {
-          method: "DELETE",
-          headers: { "Authorization": `Bearer ${token}` }
-        });
+        await api.delete(`/staff-attendance/${id}`);
       }
       setSelectedRecords([]); 
       fetchData(); 

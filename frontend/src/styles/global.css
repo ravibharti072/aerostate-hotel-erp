@@ -89,3 +89,10 @@ th {
   overflow-y: scroll; 
   scrollbar-gutter: stable;
 }
+
+/* Ensure paginated directory tables show all rows on the page without inner height clipping */
+.dir-table-container {
+  max-height: none !important;
+  overflow-y: visible !important;
+  height: auto !important;
+}

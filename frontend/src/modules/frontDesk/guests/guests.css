@@ -1,0 +1,1103 @@
+/* Guests Directory Styles */
+.guests-page {
+  flex-grow: 1;
+  padding: 24px;
+  padding-bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background-color: #f6f8fa;
+  min-height: 100vh;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #0f172a;
+  width: 100%;
+  max-width: 100vw;
+  box-sizing: border-box;
+}
+
+/* Toast */
+.gst-toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.15);
+  text-align: center;
+  max-width: 90vw;
+}
+
+.gst-toast.success {
+  background: #e6f3f0;
+  color: #166962;
+  border: 1px solid #166962;
+}
+
+.gst-toast.error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* Stats Container (6-Card Responsive Grid) */
+.guests-page .dir-stats-grid.gst-stats-six-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+  width: 100%;
+}
+
+@media (max-width: 1400px) {
+  .guests-page .dir-stats-grid.gst-stats-six-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .guests-page .dir-stats-grid.gst-stats-six-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.guests-page .dir-modules-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: -12px;
+  width: 100%;
+}
+
+/* Reception Queue Tabs Bar - Matching Check-In/Out */
+.guests-page .cio-queue-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.guests-page .cio-queue-tabs {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  width: 100% !important;
+}
+
+.guests-page .cio-queue-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  height: 38px !important;
+  padding: 0 16px !important;
+  background-color: #ffffff !important;
+  color: #475569 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  white-space: nowrap !important;
+}
+
+.guests-page .cio-queue-tab:hover {
+  background-color: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+}
+
+.guests-page .cio-queue-tab.active {
+  background-color: #2d5696 !important;
+  border-color: #2d5696 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(45, 86, 150, 0.25) !important;
+}
+
+/* Tab Badge Counters */
+.guests-page .cio-tab-count {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 2px 7px !important;
+  border-radius: 9999px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  background: #f1f5f9 !important;
+  color: #2d5696 !important;
+  line-height: 1 !important;
+}
+
+.guests-page .cio-queue-tab.active .cio-tab-count {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+
+/* Controls & Search Bar */
+.guests-page .dir-controls {
+  background: #ffffff;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 0.5px solid #cbd5e1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.guests-page .dir-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 0.5px solid #cbd5e1;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: #878e99;
+  min-width: 250px;
+  height: 40px;
+  flex: 1.5;
+  box-sizing: border-box;
+}
+
+.guests-page .dir-search-box input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  color: #0f172a;
+  font-weight: 500;
+  width: 100%;
+  height: 100%;
+}
+
+.guests-page .dir-filter-select {
+  padding: 0 12px;
+  border: 0.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  background: #f8fafc;
+  outline: none;
+  cursor: pointer;
+  height: 40px;
+  box-sizing: border-box;
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
+  appearance: auto;
+}
+
+.guests-page .btn-cancel {
+  background: #ffffff;
+  color: #878e99;
+  border: 1px solid #cbd5e1;
+  padding: 0 16px;
+  height: 40px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.guests-page .btn-cancel:hover {
+  background: #fee2e2;
+  color: #ef4444;
+  border-color: #fca5a5;
+}
+
+.guests-page .gst-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  color: #166962;
+  border: 1px solid #166962;
+  padding: 0 14px;
+  height: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.guests-page .gst-export-btn:hover {
+  background: #e6f3f0;
+}
+
+.gst-secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gst-secondary-btn:hover {
+  background: #e2e8f0;
+}
+
+/* Table */
+.gst-table-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+
+.gst-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.gst-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.gst-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+.gst-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Badges */
+.gst-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.gst-badge.in-house { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.gst-badge.in-house.co-guest { background: #f0fdf4; color: #15803d; border: 1px dashed #86efac; }
+.gst-badge.id-pill { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+
+.gst-co-guest-tag {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 6px;
+  background: #dcfce7;
+  color: #14532d;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Actions */
+.gst-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gst-action-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.gst-action-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.gst-action-btn.delete:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+/* Modal */
+.gst-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.gst-modal {
+  background: #ffffff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+
+.gst-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.gst-modal-header h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.gst-modal-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.gst-modal-close:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+.gst-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.gst-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.gst-form-full {
+  grid-column: span 2;
+}
+
+.gst-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gst-form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.gst-form-group input,
+.gst-form-group select,
+.gst-form-group textarea {
+  padding: 9px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.gst-form-group input:focus,
+.gst-form-group select:focus,
+.gst-form-group textarea:focus {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.1);
+}
+
+.gst-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+/* Empty */
+.gst-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: #94a3b8;
+}
+
+.gst-empty svg {
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+
+.gst-empty h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #475569;
+  margin: 0 0 6px 0;
+}
+
+.gst-empty p {
+  font-size: 13px;
+  margin: 0;
+}
+
+/* Enhanced Detail Modal */
+.gst-modal.gst-modal-xl {
+  max-width: 920px;
+  width: 95vw;
+}
+
+.gst-modal-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.gst-modal-kpi {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gst-modal-kpi .kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gst-modal-kpi .kpi-val {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.gst-modal-kpi .kpi-sub {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* Loyalty Tier Badges */
+.gst-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.gst-tier-badge.vip {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.gst-tier-badge.repeat {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.gst-tier-badge.first {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+/* Profile Card */
+.gst-modal-profile-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.gst-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.gst-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.gst-profile-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.gst-item-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.gst-item-val {
+  font-size: 13px;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* History Ledger */
+.gst-history-section {
+  margin-top: 8px;
+}
+
+.gst-history-table-wrapper {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.gst-history-table th {
+  background: #f8fafc;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 10px 14px;
+}
+
+.gst-history-table td {
+  padding: 10px 14px;
+  font-size: 12px;
+}
+
+.gst-active-stay-row {
+  background-color: #f0fdf4 !important;
+}
+
+.gst-room-pill {
+  display: inline-block;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 11px;
+  border: 1px solid #e2e8f0;
+}
+
+.gst-cg-indicator {
+  display: block;
+  font-size: 10px;
+  color: #059669;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.gst-no-history {
+  padding: 28px;
+  text-align: center;
+  color: #94a3b8;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px dashed #cbd5e1;
+}
+
+.gst-no-history svg {
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.gst-no-history p {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* Folio Badges */
+.gst-folio-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.gst-folio-badge.paid {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.gst-folio-badge.partial {
+  background: #fef9c3;
+  color: #854d0e;
+  border: 1px solid #fef08a;
+}
+
+.gst-folio-badge.unpaid {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* International & Form C Badges */
+.gst-badge.intl-pill {
+  background: #faf5ff;
+  color: #7e22ce;
+  border: 1px solid #d8b4fe;
+}
+
+.gst-formc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.gst-formc-pill.compliant {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.gst-formc-pill.pending {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+/* Form C Container & Toggle */
+.gst-intl-toggle-box {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.gst-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.gst-toggle-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f766e;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gst-formc-container {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #0f766e;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gst-formc-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f766e;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.gst-formc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.gst-formc-card {
+  border-left: 4px solid #0f766e;
+}
+
+/* VIP & Blacklist Badges */
+.gst-badge.vip-pill {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  font-weight: 700;
+}
+
+.gst-badge.vvip-pill {
+  background: #faf5ff;
+  color: #7e22ce;
+  border: 1px solid #d8b4fe;
+  font-weight: 800;
+}
+
+.gst-badge.blacklist-pill {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  font-weight: 700;
+}
+
+/* Operational Sections in Add/Edit */
+.gst-ops-container {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gst-ops-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.gst-ops-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.gst-chip-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.gst-suggestion-chip {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gst-suggestion-chip:hover {
+  background: #0f766e;
+  color: #ffffff;
+  border-color: #0f766e;
+}
+
+/* Blacklist Box in Add/Edit */
+.gst-blacklist-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  transition: all 0.2s ease;
+}
+
+.gst-blacklist-box.active {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-left: 4px solid #dc2626;
+}
+
+.gst-blacklist-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.gst-blacklist-toggle-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #dc2626;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gst-blacklist-input-box {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gst-blacklist-input-box label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #991b1b;
+}
+
+.gst-blacklist-input-box textarea {
+  border-color: #fca5a5;
+}
+
+.gst-blacklist-input-box textarea:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);
+}
+
+/* Blacklist Banner in Detail Modal */
+.gst-blacklist-alert-banner {
+  background: #fef2f2;
+  border: 1px solid #f87171;
+  border-left: 5px solid #dc2626;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* Repeat Guest Pill in Table */
+.gst-badge.repeat-pill {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+/* Reset Button */
+.gst-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gst-reset-btn:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+/* Actions Group & Form B Export Button */
+.gst-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.gst-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  color: #0f766e;
+  border: 1.5px solid #0f766e;
+  padding: 8.5px 15px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gst-export-btn:hover {
+  background: #f0fdfa;
+  color: #115e59;
+  border-color: #115e59;
+}
+
+/* Print Specific Elements */
+.gst-printable-letterhead {
+  display: none;
+}
+
+.gst-print-signatures {
+  display: none;
+}
+
+/* PRINT MEDIA STYLES */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .guests-page .gst-modal-overlay,
+  .guests-page .gst-modal {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .guests-page .gst-modal-body,
+  .guests-page .gst-modal-body * {
+    visibility: visible !important;
+  }
+
+  .guests-page .gst-modal-body {
+    padding: 10mm 15mm !important;
+  }
+
+  .gst-printable-letterhead {
+    display: block !important;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+  }
+
+  .gst-print-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .gst-print-hotel-name {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 4px 0;
+    text-transform: uppercase;
+  }
+
+  .gst-print-hotel-sub {
+    font-size: 12px;
+    color: #475569;
+    margin: 0;
+  }
+
+  .gst-print-meta-box {
+    text-align: right;
+    font-size: 11px;
+    color: #334155;
+    line-height: 1.5;
+  }
+
+  .gst-print-signatures {
+    display: flex !important;
+    justify-content: space-between;
+    margin-top: 36px;
+    padding-top: 16px;
+  }
+
+  .gst-sig-box {
+    width: 42%;
+    text-align: center;
+  }
+
+  .gst-sig-line {
+    border-bottom: 1px solid #334155;
+    margin-bottom: 8px;
+    height: 36px;
+  }
+
+  .gst-sig-box span {
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+  }
+
+  .gst-modal-analytics-grid {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px;
+  }
+
+  .gst-modal-profile-card {
+    border: 1px solid #cbd5e1;
+  }
+}

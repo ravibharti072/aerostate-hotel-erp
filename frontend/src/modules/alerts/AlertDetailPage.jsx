@@ -1,7 +1,8 @@
 import React from "react";
 import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { Megaphone, CalendarDays } from "lucide-react";
-import PortalHeader from "../../components/PortalHeader";
+
+import { PortalHeader } from "@components";
 import "./alerts.css";
 
 export default function AlertDetailPage() {

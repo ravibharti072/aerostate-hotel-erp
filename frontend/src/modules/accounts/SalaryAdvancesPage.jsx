@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
 import { 
   Search, 
   HandCoins, 
@@ -13,9 +12,14 @@ import {
   Wallet,
   CalendarDays
 } from "lucide-react";
-import PortalHeader from "../../components/PortalHeader";
-import StatCard from "../../components/StatCard"; 
-import ModuleWriternHeader from "../../components/ModuleWriternHeader";
+
+import { useAuth } from "@context/AuthContext";
+import api from "@api/api";
+import { 
+  PortalHeader, 
+  StatCard, 
+  ModuleWriternHeader 
+} from "@components";
 import "./salaryAdvances.css";
 
 export default function SalaryAdvancesPage() {
@@ -49,12 +53,12 @@ export default function SalaryAdvancesPage() {
     setIsLoading(true);
     try {
       const [staffRes, advancesRes] = await Promise.all([
-        fetch("http://localhost:8000/staff", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("http://localhost:8000/accounts/advances", { headers: { Authorization: `Bearer ${token}` } })
+        api.get("/staff"),
+        api.get("/accounts/advances")
       ]);
 
-      if (staffRes.ok) setStaffList(await staffRes.json());
-      if (advancesRes.ok) setAdvances(await advancesRes.json());
+      setStaffList(Array.isArray(staffRes.data) ? staffRes.data : []);
+      setAdvances(Array.isArray(advancesRes.data) ? advancesRes.data : []);
     } catch (err) {
       console.error("Error fetching advances data:", err);
     } finally {
@@ -97,22 +101,14 @@ export default function SalaryAdvancesPage() {
     };
 
     try {
-      const res = await fetch("http://localhost:8000/accounts/advances", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        setIsModalOpen(false);
-        fetchData();
-      } else {
-        const err = await res.json();
-        alert(err.detail || "Failed to issue advance.");
-      }
+      await api.post("/accounts/advances", payload);
+      setIsModalOpen(false);
+      fetchData();
     } catch (err) {
-      console.error(err);
-      alert("Network error occurred.");
+      console.error("Error submitting advance:", err);
+      const detail = err.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail : (Array.isArray(detail) ? detail.map((d) => d.msg).join(", ") : "Failed to issue advance.");
+      alert(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -120,14 +116,10 @@ export default function SalaryAdvancesPage() {
 
   const handleUpdateStatus = async (advanceId, newStatus) => {
     try {
-      const res = await fetch(`http://localhost:8000/accounts/advances/${advanceId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ status: newStatus })
-      });
-      if (res.ok) fetchData();
+      await api.put(`/accounts/advances/${advanceId}`, { status: newStatus });
+      fetchData();
     } catch (err) {
-      console.error(err);
+      console.error("Error updating advance status:", err);
     }
   };
 

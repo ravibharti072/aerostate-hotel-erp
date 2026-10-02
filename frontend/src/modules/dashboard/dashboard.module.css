@@ -234,3 +234,11 @@
   .welcome-banner { flex-direction: column; text-align: center; gap: 20px; }
   .section-header { flex-direction: column; align-items: flex-start; gap: 12px; }
 }
+
+/* --- Reusable Department Dashboards Container --- */
+.department-dashboards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}

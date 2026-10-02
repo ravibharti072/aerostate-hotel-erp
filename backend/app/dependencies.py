@@ -170,3 +170,75 @@ def require_inventory_user(
         )
 
     return current_user
+
+
+def require_role_level(allowed_levels: list[str], allow_hotel_admin: bool = True):
+    """
+    Validates that current_user has one of the allowed role_levels (e.g. ['department_head', 'hotel_admin']).
+    If allow_hotel_admin is True, super-admin and hotel-admin always pass.
+    """
+    def checker(current_user: models.User = Depends(get_current_user)):
+        if allow_hotel_admin and current_user.role in ["super-admin", "hotel-admin"]:
+            return current_user
+
+        user_level = current_user.role_level or "employee"
+        if user_level not in allowed_levels:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied. Requires one of role levels: {allowed_levels}"
+            )
+        return current_user
+
+    return checker
+
+
+def require_department_access(
+    department_name: str,
+    allowed_role_levels: Optional[list[str]] = None,
+    allow_hotel_admin: bool = True
+):
+    """
+    Department-agnostic permission guard:
+    - department_name: e.g. "maintenance", "housekeeping", "kitchen", etc.
+    - allowed_role_levels: e.g. ["department_head", "employee"] (default both)
+    - allow_hotel_admin: if True, hotel-admin and super-admin automatically pass.
+    """
+    levels = allowed_role_levels or ["employee", "department_head", "hotel_admin"]
+
+    def dependency(current_user: models.User = Depends(get_current_user)):
+        if allow_hotel_admin and current_user.role in ["super-admin", "hotel-admin"]:
+            return current_user
+
+        # User level
+        user_level = current_user.role_level or "employee"
+        if user_level not in levels:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied. Requires one of role levels: {levels}"
+            )
+
+        user_role = (current_user.role or "").lower()
+        role_matches_dept = (
+            (dept_lower in ["housekeeping"] and "housekeep" in user_role)
+            or (dept_lower in ["front_desk", "front-desk"] and ("front" in user_role or "desk" in user_role))
+            or (dept_lower in ["maintenance", "engineering"] and "maint" in user_role)
+            or (dept_lower in ["restaurant", "pos", "kitchen"] and "rest" in user_role)
+            or (dept_lower in ["accounts", "accountant"] and ("account" in user_role or "cash" in user_role))
+        )
+
+        dept_matches = (
+            dept_lower in user_dept
+            or role_matches_dept
+            or dept_lower in allowed_modules
+            or "all" in allowed_modules
+        )
+
+        if not dept_matches:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied. User does not have access to the {department_name} department."
+            )
+
+        return current_user
+
+    return dependency

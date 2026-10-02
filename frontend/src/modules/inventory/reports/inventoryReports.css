@@ -1,0 +1,681 @@
+/* =========================================================
+   INVENTORY REPORTS & AUDIT LEDGER STYLES
+   Aerostate ERP Design System
+   ========================================================= */
+
+/* --- BASE PAGE LAYOUT --- */
+.inv-page {
+  flex-grow: 1;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background-color: #f8fafc;
+  min-height: 100vh;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #0f172a;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* --- STATS GRID (Synchronized 4-Column Layout) --- */
+.inv-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* --- MODULE SECTION --- */
+.inv-modules-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* --- TOOLBAR CARD --- */
+.inv-toolbar-card {
+  background: #ffffff;
+  padding: 14px 20px;
+  border-radius: 16px;
+  border: 1px solid #eef2f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.015);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.inv-search-box,
+.inv-filter-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 9px 14px;
+  border-radius: 10px;
+  color: #64748b;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.inv-search-box:focus-within,
+.inv-filter-box:focus-within {
+  border-color: #2d5696;
+  background: #ffffff;
+}
+
+.inv-search-box {
+  min-width: 260px;
+  flex: 1;
+}
+
+.inv-filters-right-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.inv-search-box input,
+.inv-filter-box select {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  color: #0f172a;
+  font-weight: 500;
+  width: 100%;
+  font-family: inherit;
+}
+
+.inv-filter-box select {
+  cursor: pointer;
+}
+
+/* --- VIEW TOGGLE --- */
+.inv-view-toggle {
+  display: flex;
+  align-items: center;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  gap: 2px;
+}
+
+.inv-view-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.inv-view-btn:hover {
+  color: #0f172a;
+}
+
+.inv-view-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* =========================================================
+   AUDITED MOVEMENT TABLE LIST STYLES
+   ========================================================= */
+.inv-table-container {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #eef2f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.015);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.inv-table {
+  width: 100%;
+  min-width: 960px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.inv-table th {
+  background: #f8fafc;
+  padding: 13px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.th-id { width: 60px; }
+.th-item { min-width: 200px; }
+.th-category { width: 140px; }
+.th-movement { width: 110px; }
+.th-quantity { width: 120px; }
+.th-valuation { width: 130px; }
+.th-ref { min-width: 190px; }
+.th-author { width: 120px; }
+.th-date { width: 130px; }
+
+.inv-table-row {
+  transition: background-color 0.12s ease;
+}
+
+.inv-table-row:hover {
+  background-color: #f8fafc;
+}
+
+.inv-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 13px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.inv-log-id-chip {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.inv-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.inv-item-name-text {
+  font-weight: 700;
+  color: #0f172a;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inv-sku-chip {
+  font-size: 10.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 3px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.inv-category-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.inv-qty-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: -0.2px;
+}
+
+.inv-qty-pill.receive {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.inv-qty-pill.issue {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.inv-qty-pill.adjust {
+  background: #fff7ed;
+  color: #d97706;
+}
+
+.inv-val-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.inv-val-main {
+  font-weight: 800;
+  color: #0f172a;
+  font-size: 13.5px;
+}
+
+.inv-val-sub {
+  font-size: 10.5px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.inv-ref-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 220px;
+}
+
+.inv-ref-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  width: fit-content;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inv-reason-text {
+  font-size: 11px;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inv-author-cell {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  color: #334155;
+  font-size: 12.5px;
+}
+
+.inv-avatar-mini {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 700;
+  font-size: 10.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #bfdbfe;
+}
+
+.inv-date-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* --- CARDS GRID (Aligned with Stat Cards) --- */
+.inv-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* --- AUDITED MOVEMENT ITEM CARD --- */
+.inv-item-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 18px 20px;
+  border: 1px solid #eef2f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.inv-item-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -4px rgba(15, 23, 42, 0.08), 0 4px 8px -2px rgba(15, 23, 42, 0.03);
+  border-color: #cbd5e1;
+}
+
+/* Accent top border corresponding to movement nature */
+.inv-card-receive {
+  border-top: 3px solid #10b981;
+}
+
+.inv-card-issue {
+  border-top: 3px solid #ef4444;
+}
+
+.inv-card-adjust {
+  border-top: 3px solid #f59e0b;
+}
+
+/* --- CARD HEADER --- */
+.inv-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.inv-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.inv-type-badge.receive {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.inv-type-badge.issue {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.inv-type-badge.adjust {
+  background: #fff7ed;
+  color: #d97706;
+}
+
+.inv-type-icon {
+  flex-shrink: 0;
+}
+
+.inv-card-category-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 6px;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- CARD BODY --- */
+.inv-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.inv-card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inv-card-ref-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.inv-card-ref-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 2px 7px;
+  border-radius: 5px;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inv-card-sku-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.inv-card-reason {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- CARD METRICS BOX --- */
+.inv-card-metrics-box {
+  background: #f8fafc;
+  border: 1px solid #eef2f6;
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.inv-metric-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.inv-metric-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.inv-metric-qty {
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+.inv-metric-qty.receive { color: #059669; }
+.inv-metric-qty.issue { color: #dc2626; }
+.inv-metric-qty.adjust { color: #d97706; }
+
+.inv-metric-divider {
+  width: 1px;
+  height: 28px;
+  background: #e2e8f0;
+  flex-shrink: 0;
+}
+
+.inv-metric-right {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.inv-metric-val {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+/* --- CARD FOOTER --- */
+.inv-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.inv-card-author {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inv-author-icon {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.inv-card-id {
+  font-weight: 600;
+  color: #94a3b8;
+  background: #f1f5f9;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  flex-shrink: 0;
+}
+
+/* --- EMPTY & NOTIFICATION BOXES --- */
+.inv-empty {
+  padding: 48px;
+  text-align: center;
+  color: #64748b;
+  font-weight: 500;
+  grid-column: 1 / -1;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px dashed #cbd5e1;
+}
+
+.inv-error-box {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid #fecaca;
+}
+
+.inv-success-box {
+  background-color: #d1fae5;
+  color: #047857;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid #a7f3d0;
+}
+
+/* =========================================================
+   SYNCHRONIZED RESPONSIVE BREAKPOINTS
+   Both Stat Cards and Report Cards stay in 1:1 alignment
+   ========================================================= */
+@media (max-width: 1400px) {
+  .inv-stats-grid,
+  .inv-cards-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .inv-page {
+    padding: 20px;
+    gap: 16px;
+  }
+  .inv-stats-grid,
+  .inv-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .inv-filters-right-group {
+    width: 100%;
+  }
+  .inv-filter-box {
+    flex: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .inv-page {
+    padding: 14px;
+    gap: 14px;
+  }
+  .inv-stats-grid,
+  .inv-cards-grid {
+    grid-template-columns: 1fr;
+  }
+  .inv-search-box {
+    min-width: 100%;
+  }
+}

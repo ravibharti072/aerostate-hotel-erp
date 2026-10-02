@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import api from "@api/api";
 import {
   Users,
   CalendarCheck,
@@ -9,24 +11,68 @@ import {
   UserCheck,
   UserMinus,
   CreditCard,
-  Fingerprint // <-- Added icon for the Biometric module
+  Fingerprint,
+  ShieldCheck
 } from "lucide-react";
-import PortalHeader from "../../components/PortalHeader";
-import StatCard from "../../components/StatCard"; 
-import ModuleCard from "../../components/ModuleCard"; 
-import ModuleWriternHeader from "../../components/ModuleWriternHeader";
+import PortalHeader from "../../components/headers/PortalHeader";
+import StatCard from "../../components/cards/StatCard"; 
+import ModuleCard from "../../components/cards/ModuleCard"; 
+import ModuleWriternHeader from "../../components/headers/ModuleWriternHeader";
 import "./staffPage.css";
 
 export default function StaffPage() {
   const navigate = useNavigate();
+  const { token } = useAuth();
 
-  // Mock stats for the UI. You can replace these with API data later!
   const [stats, setStats] = useState({
     totalStaff: 0,
     presentToday: 0,
     onLeave: 0,
     pendingApprovals: 0,
   });
+
+  useEffect(() => {
+    if (!token) return;
+    let isMounted = true;
+    const fetchStats = async () => {
+      try {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const [staffRes, attRes, leaveRes] = await Promise.all([
+          api.get("/staff"),
+          api.get("/staff-attendance"),
+          api.get("/staff-leaves", { params: { status: "pending" } })
+        ]);
+
+        const staffData = Array.isArray(staffRes.data) ? staffRes.data : [];
+        const attData = Array.isArray(attRes.data) ? attRes.data : [];
+        const leaveData = Array.isArray(leaveRes.data) ? leaveRes.data : [];
+
+        const todayAttendance = attData.filter((a) => {
+          if (!a.attendance_date) return false;
+          return a.attendance_date.slice(0, 10) === todayStr;
+        });
+
+        const presentCount = todayAttendance.filter((a) => a.status === "present").length;
+        const onLeaveCount = todayAttendance.filter((a) => a.status === "on-leave").length;
+
+        if (isMounted) {
+          setStats({
+            totalStaff: staffData.length,
+            presentToday: presentCount,
+            onLeave: onLeaveCount,
+            pendingApprovals: leaveData.length,
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching staff portal summary stats:", err);
+      }
+    };
+
+    fetchStats();
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
 
   const staffModules = [
     {
@@ -59,12 +105,18 @@ export default function StaffPage() {
       path: "/staff/leaves",
       color: "orange"
     },
+    {
+      title: "Portal Access",
+      icon: ShieldCheck,
+      path: "/staff/portal-access",
+      color: "blue"
+    },
     // --- NEW BIOMETRIC LOGS MODULE ---
     {
       title: "Biometric Logs",
       icon: Fingerprint,
       path: "/staff/biometric-logs",
-      color: "indigo" // You can change this to match your preferred theme color
+      color: "indigo"
     }
   ];
 

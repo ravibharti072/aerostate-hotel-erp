@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+.venv/
+
+# Databases (never commit data)
+*.db
+*.sqlite3
+*.db.bak
+*.db.unused-seed.bak
+
+# Environment
+.env
+.env.local
+
+# Node / frontend build output
+node_modules/
+frontend/dist/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

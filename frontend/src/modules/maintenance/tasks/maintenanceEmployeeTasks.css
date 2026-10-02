@@ -1,0 +1,189 @@
+/* ==========================================================================
+   AEROSTATE PMS - MAINTENANCE ASSIGNED TASKS DIRECTORY
+   Directly aligned with Service Requests & AeroState PMS Design Tokens
+   ========================================================================== */
+
+@import "../requests/requests.css";
+
+/* Custom Tab Badge Color Variations */
+.tab-count-badge.amber {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+}
+
+.tab-count-badge.green {
+  background: #dcfce7 !important;
+  color: #15803d !important;
+}
+
+.booking-tab-btn.active .tab-count-badge.amber,
+.booking-tab-btn.active .tab-count-badge.green {
+  background: #ffffff !important;
+  color: #2d5696 !important;
+}
+
+/* View Mode Toggle Controls */
+.dir-view-mode-toggle {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.dir-view-toggle-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: #64748b;
+  transition: all 0.15s ease;
+}
+
+.dir-view-toggle-btn.active {
+  background: #ffffff;
+  color: #2d5696;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Action Buttons inside Table */
+.emp-action-btn-start {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #2563eb;
+  color: #ffffff;
+  border: 1px solid #2563eb;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.emp-action-btn-start:hover {
+  background: #1d4ed8;
+}
+
+.emp-action-btn-complete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #059669;
+  color: #ffffff;
+  border: 1px solid #059669;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.emp-action-btn-complete:hover {
+  background: #047857;
+}
+
+.emp-action-btn-claim {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #166962;
+  color: #ffffff;
+  border: 1px solid #166962;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.emp-action-btn-claim:hover {
+  background: #12524d;
+}
+
+/* Optional Task Cards Grid Mode */
+.emp-task-cards-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+.emp-task-card {
+  background: #ffffff;
+  border: 0.5px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.emp-task-card:hover {
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.08);
+  border-color: #94a3b8;
+}
+
+.emp-task-card.is-urgent {
+  border-left: 4px solid #ef4444;
+}
+
+.emp-task-card.is-in-progress {
+  border-left: 4px solid #0284c7;
+}
+
+.emp-task-card.is-completed {
+  border-left: 4px solid #10b981;
+}
+
+.emp-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.emp-card-title {
+  margin: 10px 0 6px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.emp-card-instructions {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  color: #334155;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.emp-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: #64748b;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.emp-card-actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+}

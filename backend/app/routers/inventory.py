@@ -1,319 +1,780 @@
-from fastapi import APIRouter, Depends, HTTPException
-from typing import Optional
+from datetime import datetime
+from typing import Dict, List, Optional
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.database import get_db
 from app import models, schemas
+from app.database import get_db
 from app.dependencies import get_current_user
+from app.services.inventory_service import InventoryService
 
 router = APIRouter(
     prefix="/inventory",
-    tags=["Inventory"]
+    tags=["Inventory"],
 )
+
+
+def get_inventory_service(db: Session = Depends(get_db)) -> InventoryService:
+    return InventoryService(db)
+
+
+# -------------------------------------------------------------
+# Inventory Dashboard Analytics (Phase 10)
+# -------------------------------------------------------------
+
+@router.get("/dashboard", response_model=schemas.InventoryDashboardSummaryResponse)
+def get_inventory_dashboard(
+    hotel_id: Optional[int] = Query(None),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Returns high-level operational inventory KPIs, department consumption,
+    category valuations, top consumed stock, and low-stock alerts.
+    """
+    return service.get_dashboard_summary(hotel_id, current_user)
+
+
+# -------------------------------------------------------------
+# Physical Stock Count & Reconciliation (Phase 9)
+# -------------------------------------------------------------
+
+@router.post("/physical-counts", response_model=schemas.PhysicalStockCountResponse)
+def create_physical_count(
+    payload: schemas.PhysicalStockCountCreate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Creates a physical stock count draft session and calculates store-level variances.
+    """
+    return service.create_physical_count(payload, current_user)
+
+
+@router.post("/physical-counts/{count_id}/finalize", response_model=schemas.PhysicalStockCountResponse)
+def finalize_physical_count(
+    count_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Finalizes and approves a physical count, automatically executing stock reconciliation 
+    adjustments for all variances.
+    """
+    return service.finalize_physical_count(count_id, current_user)
+
+
+@router.get("/physical-counts", response_model=schemas.PaginatedPhysicalStockCountResponse)
+def get_physical_counts(
+    hotel_id: Optional[int] = Query(None),
+    store_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_physical_counts(
+        hotel_id=hotel_id,
+        store_id=store_id,
+        status=status,
+        page=page,
+        page_size=page_size,
+        current_user=current_user,
+    )
+
+
+@router.get("/physical-counts/{count_id}", response_model=schemas.PhysicalStockCountResponse)
+def get_physical_count(
+    count_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_physical_count(count_id, current_user)
+
+
+# -------------------------------------------------------------
+# Stock Adjustments (Phase 8)
+# -------------------------------------------------------------
+
+@router.post("/adjustments", response_model=schemas.InventoryAdjustmentResponse)
+def adjust_stock(
+    payload: schemas.InventoryAdjustmentCreate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Manually adjusts item stock count up or down with auditable reason logging.
+    """
+    return service.adjust_stock(payload, current_user)
+
+
+@router.get("/adjustments", response_model=schemas.PaginatedInventoryAdjustmentResponse)
+def get_adjustments(
+    hotel_id: Optional[int] = Query(None),
+    store_id: Optional[int] = Query(None),
+    item_id: Optional[int] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_adjustments(
+        hotel_id=hotel_id,
+        store_id=store_id,
+        item_id=item_id,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        page_size=page_size,
+        current_user=current_user,
+    )
+
+
+# -------------------------------------------------------------
+# Damage / Wastage / Expiry (Phase 8)
+# -------------------------------------------------------------
+
+@router.post("/wastages", response_model=schemas.InventoryWastageResponse)
+def record_wastage(
+    payload: schemas.InventoryWastageCreate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Records operational stock write-offs (Damage, Spoilage, Expiry, Breakage).
+    """
+    return service.record_wastage(payload, current_user)
+
+
+@router.get("/wastages", response_model=schemas.PaginatedInventoryWastageResponse)
+def get_wastages(
+    hotel_id: Optional[int] = Query(None),
+    waste_type: Optional[str] = Query(None),
+    store_id: Optional[int] = Query(None),
+    item_id: Optional[int] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_wastages(
+        hotel_id=hotel_id,
+        waste_type=waste_type,
+        store_id=store_id,
+        item_id=item_id,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        page_size=page_size,
+        current_user=current_user,
+    )
+
+
+# -------------------------------------------------------------
+# Returns from Departments (Phase 7)
+# -------------------------------------------------------------
+
+@router.post("/returns", response_model=schemas.InventoryReturnResponse)
+def return_stock_from_department(
+    payload: schemas.InventoryReturnCreate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Processes unused department items returned back to store.
+    Increases store stock and logs RETURN_TO_STORE to the ledger.
+    """
+    return service.return_stock_from_department(payload, current_user)
+
+
+@router.get("/returns", response_model=schemas.PaginatedInventoryReturnResponse)
+def get_returns(
+    hotel_id: Optional[int] = Query(None),
+    department: Optional[str] = Query(None),
+    store_id: Optional[int] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_returns(
+        hotel_id=hotel_id,
+        department=department,
+        store_id=store_id,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        page_size=page_size,
+        current_user=current_user,
+    )
+
+
+@router.get("/returns/{return_id}", response_model=schemas.InventoryReturnResponse)
+def get_return(
+    return_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_return(return_id, current_user)
+
+
+# -------------------------------------------------------------
+# Supplier Returns (Phase 7)
+# -------------------------------------------------------------
+
+@router.post("/supplier-returns", response_model=schemas.InventorySupplierReturnResponse)
+def return_goods_to_supplier(
+    payload: schemas.InventorySupplierReturnCreate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Processes defective, expired, or wrong goods returned back to the vendor.
+    Deducts store inventory and logs SUPPLIER_RETURN to the ledger.
+    """
+    return service.return_goods_to_supplier(payload, current_user)
+
+
+@router.get("/supplier-returns", response_model=schemas.PaginatedInventorySupplierReturnResponse)
+def get_supplier_returns(
+    hotel_id: Optional[int] = Query(None),
+    supplier_id: Optional[int] = Query(None),
+    store_id: Optional[int] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_supplier_returns(
+        hotel_id=hotel_id,
+        supplier_id=supplier_id,
+        store_id=store_id,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        page_size=page_size,
+        current_user=current_user,
+    )
+
+
+@router.get("/supplier-returns/{sret_id}", response_model=schemas.InventorySupplierReturnResponse)
+def get_supplier_return(
+    sret_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_supplier_return(sret_id, current_user)
+
+
+# -------------------------------------------------------------
+# Inter-Store Stock Transfers (Phase 7)
+# -------------------------------------------------------------
+
+@router.post("/transfers", response_model=schemas.InventoryTransferResponse)
+def transfer_stock(
+    payload: schemas.InventoryTransferCreate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Transfers inventory between stores (e.g. Main Store -> Housekeeping Store).
+    Atomically shifts location stock and logs matched TRANSFER_OUT / TRANSFER_IN movements.
+    """
+    return service.transfer_stock(payload, current_user)
+
+
+@router.get("/transfers", response_model=schemas.PaginatedInventoryTransferResponse)
+def get_transfers(
+    hotel_id: Optional[int] = Query(None),
+    from_store_id: Optional[int] = Query(None),
+    to_store_id: Optional[int] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_transfers(
+        hotel_id=hotel_id,
+        from_store_id=from_store_id,
+        to_store_id=to_store_id,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        page_size=page_size,
+        current_user=current_user,
+    )
+
+
+@router.get("/transfers/{transfer_id}", response_model=schemas.InventoryTransferResponse)
+def get_transfer(
+    transfer_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_transfer(transfer_id, current_user)
+
+
+# -------------------------------------------------------------
+# Department Issues (Phase 6)
+# -------------------------------------------------------------
+
+@router.post("/issues", response_model=schemas.InventoryIssueResponse)
+def issue_stock(
+    payload: schemas.InventoryIssueCreate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.issue_stock(payload, current_user)
+
+
+@router.get("/issues", response_model=schemas.PaginatedInventoryIssueResponse)
+def get_issues(
+    hotel_id: Optional[int] = Query(None),
+    department: Optional[str] = Query(None),
+    store_id: Optional[int] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_issues(
+        hotel_id=hotel_id,
+        department=department,
+        store_id=store_id,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        page_size=page_size,
+        current_user=current_user,
+    )
+
+
+@router.get("/issues/{issue_id}", response_model=schemas.InventoryIssueResponse)
+def get_issue(
+    issue_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_issue(issue_id, current_user)
+
+
+# -------------------------------------------------------------
+# Department Consumption (Phase 6)
+# -------------------------------------------------------------
+
+@router.post("/consumptions", response_model=schemas.InventoryConsumptionResponse)
+def record_consumption(
+    payload: schemas.InventoryConsumptionCreate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.record_consumption(payload, current_user)
+
+
+@router.get("/consumptions", response_model=schemas.PaginatedInventoryConsumptionResponse)
+def get_consumptions(
+    hotel_id: Optional[int] = Query(None),
+    department: Optional[str] = Query(None),
+    store_id: Optional[int] = Query(None),
+    item_id: Optional[int] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_consumptions(
+        hotel_id=hotel_id,
+        department=department,
+        store_id=store_id,
+        item_id=item_id,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        page_size=page_size,
+        current_user=current_user,
+    )
+
+
+# -------------------------------------------------------------
+# Goods Receipt Note (GRN) / Purchase Receiving (Phase 5)
+# -------------------------------------------------------------
+
+@router.post("/receipts", response_model=schemas.InventoryReceiptResponse)
+def receive_goods(
+    payload: schemas.InventoryReceiptCreate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.receive_goods(payload, current_user)
+
+
+@router.get("/receipts", response_model=schemas.PaginatedInventoryReceiptResponse)
+def get_receipts(
+    hotel_id: Optional[int] = Query(None),
+    supplier_id: Optional[int] = Query(None),
+    store_id: Optional[int] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_receipts(
+        hotel_id=hotel_id,
+        supplier_id=supplier_id,
+        store_id=store_id,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        page_size=page_size,
+        current_user=current_user,
+    )
+
+
+@router.get("/receipts/{receipt_id}", response_model=schemas.InventoryReceiptResponse)
+def get_receipt(
+    receipt_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_receipt(receipt_id, current_user)
+
+
+# -------------------------------------------------------------
+# Stock Engine & Ledger Endpoints
+# -------------------------------------------------------------
+
+@router.post("/movements", response_model=schemas.StockLedgerResponse)
+def execute_stock_movement(
+    movement: schemas.StockMovementRequest,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.execute_stock_movement(movement, current_user)
+
+
+@router.get("/ledger", response_model=schemas.PaginatedStockLedgerResponse)
+def get_stock_ledger(
+    hotel_id: Optional[int] = Query(None),
+    item_id: Optional[int] = Query(None),
+    store_id: Optional[int] = Query(None),
+    movement_type: Optional[str] = Query(None),
+    department: Optional[str] = Query(None),
+    supplier_id: Optional[int] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_stock_ledger(
+        hotel_id=hotel_id,
+        item_id=item_id,
+        store_id=store_id,
+        movement_type=movement_type,
+        department=department,
+        supplier_id=supplier_id,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        page_size=page_size,
+        current_user=current_user,
+    )
+
+
+# -------------------------------------------------------------
+# Stores / Warehouses
+# -------------------------------------------------------------
+
+@router.post("/stores", response_model=schemas.InventoryStoreResponse)
+def create_inventory_store(
+    store: schemas.InventoryStoreCreate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.create_store(store, current_user)
+
+
+@router.get("/stores", response_model=List[schemas.InventoryStoreResponse])
+def get_inventory_stores(
+    hotel_id: Optional[int] = Query(None),
+    active_only: bool = Query(False),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_stores(hotel_id, active_only, current_user)
+
+
+@router.get("/stores/{store_id}", response_model=schemas.InventoryStoreResponse)
+def get_inventory_store(
+    store_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_store(store_id, current_user)
+
+
+@router.put("/stores/{store_id}", response_model=schemas.InventoryStoreResponse)
+def update_inventory_store(
+    store_id: int,
+    store_update: schemas.InventoryStoreUpdate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.update_store(store_id, store_update, current_user)
+
+
+@router.delete("/stores/{store_id}")
+def delete_inventory_store(
+    store_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+) -> Dict[str, str]:
+    return service.delete_store(store_id, current_user)
+
+
+# -------------------------------------------------------------
+# Suppliers / Vendors
+# -------------------------------------------------------------
+
+@router.post("/suppliers", response_model=schemas.VendorResponse)
+def create_inventory_supplier(
+    vendor: schemas.VendorCreate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.create_supplier(vendor, current_user)
+
+
+@router.get("/suppliers", response_model=List[schemas.VendorResponse])
+def get_inventory_suppliers(
+    hotel_id: Optional[int] = Query(None),
+    active_only: bool = Query(False),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_suppliers(hotel_id, active_only, current_user)
+
+
+@router.get("/suppliers/{supplier_id}", response_model=schemas.VendorResponse)
+def get_inventory_supplier(
+    supplier_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_supplier(supplier_id, current_user)
+
+
+@router.put("/suppliers/{supplier_id}", response_model=schemas.VendorResponse)
+def update_inventory_supplier(
+    supplier_id: int,
+    vendor_update: schemas.VendorUpdate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.update_supplier(supplier_id, vendor_update, current_user)
+
+
+# -------------------------------------------------------------
+# Categories
+# -------------------------------------------------------------
+
+@router.post("/categories", response_model=schemas.InventoryCategoryResponse)
+def create_inventory_category(
+    category: schemas.InventoryCategoryCreate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.create_category(category, current_user)
+
+
+@router.get("/categories", response_model=List[schemas.InventoryCategoryResponse])
+def get_inventory_categories(
+    hotel_id: Optional[int] = Query(None),
+    active_only: bool = Query(False),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_categories(hotel_id, active_only, current_user)
+
+
+@router.get("/categories/{category_id}", response_model=schemas.InventoryCategoryResponse)
+def get_inventory_category(
+    category_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_category(category_id, current_user)
+
+
+@router.put("/categories/{category_id}", response_model=schemas.InventoryCategoryResponse)
+def update_inventory_category(
+    category_id: int,
+    category_update: schemas.InventoryCategoryUpdate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.update_category(category_id, category_update, current_user)
+
+
+@router.delete("/categories/{category_id}")
+def delete_inventory_category(
+    category_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+) -> Dict[str, str]:
+    return service.delete_category(category_id, current_user)
+
+
+# -------------------------------------------------------------
+# Units of Measure
+# -------------------------------------------------------------
+
+@router.post("/units", response_model=schemas.InventoryUnitResponse)
+def create_inventory_unit(
+    unit: schemas.InventoryUnitCreate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.create_unit(unit, current_user)
+
+
+@router.get("/units", response_model=List[schemas.InventoryUnitResponse])
+def get_inventory_units(
+    hotel_id: Optional[int] = Query(None),
+    active_only: bool = Query(False),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_units(hotel_id, active_only, current_user)
+
+
+@router.get("/units/{unit_id}", response_model=schemas.InventoryUnitResponse)
+def get_inventory_unit(
+    unit_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_unit(unit_id, current_user)
+
+
+@router.put("/units/{unit_id}", response_model=schemas.InventoryUnitResponse)
+def update_inventory_unit(
+    unit_id: int,
+    unit_update: schemas.InventoryUnitUpdate,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.update_unit(unit_id, unit_update, current_user)
+
+
+@router.delete("/units/{unit_id}")
+def delete_inventory_unit(
+    unit_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+) -> Dict[str, str]:
+    return service.delete_unit(unit_id, current_user)
+
+
+# -------------------------------------------------------------
+# Inventory Items (Backward-Compatible + Extended)
+# -------------------------------------------------------------
 
 @router.post("/items", response_model=schemas.InventoryItemResponse)
 def create_inventory_item(
     item: schemas.InventoryItemCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
 ):
-    if current_user.role not in ["super-admin", "hotel-admin", "manager", "inventory"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Only inventory, hotel-admin, manager, or super-admin can create inventory items"
-        )
-
-    if current_user.role != "super-admin":
-        if item.hotel_id != current_user.hotel_id:
-            raise HTTPException(
-                status_code=403,
-                detail="You can create inventory items only for your own hotel"
-            )
-
-    hotel = db.query(models.Hotel).filter(
-        models.Hotel.id == item.hotel_id
-    ).first()
-
-    if not hotel:
-        raise HTTPException(status_code=404, detail="Hotel not found")
-
-    existing_item = db.query(models.InventoryItem).filter(
-        models.InventoryItem.hotel_id == item.hotel_id,
-        models.InventoryItem.sku == item.sku
-    ).first()
-
-    if existing_item:
-        raise HTTPException(
-            status_code=400,
-            detail="Inventory item with this SKU already exists for this hotel"
-        )
-
-    new_item = models.InventoryItem(**item.model_dump())
-
-    db.add(new_item)
-    db.commit()
-    db.refresh(new_item)
-
-    return new_item
+    return service.create_inventory_item(item, current_user)
 
 
-@router.get("/items", response_model=list[schemas.InventoryItemResponse])
+@router.get("/items", response_model=List[schemas.InventoryItemResponse])
 def get_inventory_items(
-    hotel_id: Optional[int] = None,
-    category: Optional[str] = None,
-    low_stock_only: bool = False,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    hotel_id: Optional[int] = Query(None),
+    category: Optional[str] = Query(None),
+    category_id: Optional[int] = Query(None),
+    low_stock_only: bool = Query(False),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
 ):
-    query = db.query(models.InventoryItem)
-
-    if current_user.role == "super-admin":
-        if hotel_id:
-            query = query.filter(models.InventoryItem.hotel_id == hotel_id)
-    else:
-        query = query.filter(models.InventoryItem.hotel_id == current_user.hotel_id)
-
-    if category:
-        query = query.filter(models.InventoryItem.category == category)
-
-    if low_stock_only:
-        query = query.filter(
-            models.InventoryItem.current_stock <= models.InventoryItem.min_stock_level
-        )
-
-    items = query.order_by(models.InventoryItem.id.desc()).all()
-
-    return items
+    return service.get_inventory_items(hotel_id, category, category_id, low_stock_only, current_user)
 
 
 @router.get("/items/{item_id}", response_model=schemas.InventoryItemResponse)
 def get_inventory_item(
     item_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
 ):
-    item = db.query(models.InventoryItem).filter(
-        models.InventoryItem.id == item_id
-    ).first()
+    return service.get_inventory_item(item_id, current_user)
 
-    if not item:
-        raise HTTPException(status_code=404, detail="Inventory item not found")
 
-    if current_user.role != "super-admin":
-        if item.hotel_id != current_user.hotel_id:
-            raise HTTPException(
-                status_code=403,
-                detail="You can view only inventory items from your own hotel"
-            )
-
-    return item
+@router.get("/items/{item_id}/locations", response_model=List[schemas.LocationStockResponse])
+def get_inventory_item_locations(
+    item_id: int,
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+):
+    return service.get_item_location_stocks(item_id, current_user)
 
 
 @router.put("/items/{item_id}", response_model=schemas.InventoryItemResponse)
 def update_inventory_item(
     item_id: int,
     item_update: schemas.InventoryItemUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
 ):
-    if current_user.role not in ["super-admin", "hotel-admin", "manager", "inventory"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Only inventory, hotel-admin, manager, or super-admin can update inventory items"
-        )
-
-    item = db.query(models.InventoryItem).filter(
-        models.InventoryItem.id == item_id
-    ).first()
-
-    if not item:
-        raise HTTPException(status_code=404, detail="Inventory item not found")
-
-    if current_user.role != "super-admin":
-        if item.hotel_id != current_user.hotel_id:
-            raise HTTPException(
-                status_code=403,
-                detail="You can update only inventory items from your own hotel"
-            )
-
-    update_data = item_update.model_dump(exclude_unset=True)
-
-    if current_user.role != "super-admin":
-        if "hotel_id" in update_data and update_data["hotel_id"] != current_user.hotel_id:
-            raise HTTPException(
-                status_code=403,
-                detail="You cannot move inventory item to another hotel"
-            )
-
-    if "sku" in update_data:
-        duplicate_item = db.query(models.InventoryItem).filter(
-            models.InventoryItem.hotel_id == item.hotel_id,
-            models.InventoryItem.sku == update_data["sku"],
-            models.InventoryItem.id != item_id
-        ).first()
-
-        if duplicate_item:
-            raise HTTPException(
-                status_code=400,
-                detail="Another inventory item with this SKU already exists for this hotel"
-            )
-
-    if "current_stock" in update_data and update_data["current_stock"] < 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Current stock cannot be negative"
-        )
-
-    if "min_stock_level" in update_data and update_data["min_stock_level"] < 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Minimum stock level cannot be negative"
-        )
-
-    for key, value in update_data.items():
-        setattr(item, key, value)
-
-    db.commit()
-    db.refresh(item)
-
-    return item
+    return service.update_inventory_item(item_id, item_update, current_user)
 
 
 @router.delete("/items/{item_id}")
 def delete_inventory_item(
     item_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    if current_user.role not in ["super-admin", "hotel-admin", "manager", "inventory"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Only inventory, hotel-admin, manager, or super-admin can delete inventory items"
-        )
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
+) -> Dict[str, str]:
+    return service.delete_inventory_item(item_id, current_user)
 
-    item = db.query(models.InventoryItem).filter(
-        models.InventoryItem.id == item_id
-    ).first()
 
-    if not item:
-        raise HTTPException(status_code=404, detail="Inventory item not found")
-
-    if current_user.role != "super-admin":
-        if item.hotel_id != current_user.hotel_id:
-            raise HTTPException(
-                status_code=403,
-                detail="You can delete only inventory items from your own hotel"
-            )
-
-    used_in_transactions = db.query(models.StockTransaction).filter(
-        models.StockTransaction.item_id == item.id
-    ).first()
-
-    if used_in_transactions:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot delete inventory item because stock transactions exist for this item"
-        )
-
-    db.delete(item)
-    db.commit()
-
-    return {
-        "message": "Inventory item deleted successfully"
-    }
-
+# -------------------------------------------------------------
+# Stock Transactions (Preserved Compatibility)
+# -------------------------------------------------------------
 
 @router.post("/stock-transactions", response_model=schemas.StockTransactionResponse)
 def create_stock_transaction(
     transaction: schemas.StockTransactionCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
 ):
-    if current_user.role not in ["super-admin", "hotel-admin", "manager", "inventory"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Only inventory, hotel-admin, manager, or super-admin can create stock transactions"
-        )
-
-    item = db.query(models.InventoryItem).filter(
-        models.InventoryItem.id == transaction.item_id
-    ).first()
-
-    if not item:
-        raise HTTPException(status_code=404, detail="Inventory item not found")
-
-    if current_user.role != "super-admin":
-        if item.hotel_id != current_user.hotel_id:
-            raise HTTPException(
-                status_code=403,
-                detail="You can create stock transactions only for your own hotel items"
-            )
-
-    allowed_types = ["receive", "issue", "adjust"]
-
-    if transaction.transaction_type not in allowed_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid transaction type. Allowed: {allowed_types}"
-        )
-
-    if transaction.quantity <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Quantity must be greater than 0"
-        )
-
-    if transaction.transaction_type == "receive":
-        item.current_stock = item.current_stock + transaction.quantity
-
-    elif transaction.transaction_type in ["issue", "adjust"]:
-        if transaction.quantity > item.current_stock:
-            raise HTTPException(
-                status_code=400,
-                detail="Quantity cannot be greater than current stock"
-            )
-
-        item.current_stock = item.current_stock - transaction.quantity
-
-    new_transaction = models.StockTransaction(
-        hotel_id=item.hotel_id,
-        item_id=item.id,
-        transaction_type=transaction.transaction_type,
-        quantity=transaction.quantity,
-        reason=transaction.reason,
-        reference=transaction.reference,
-        created_by=transaction.created_by
-    )
-
-    db.add(new_transaction)
-    db.commit()
-    db.refresh(new_transaction)
-
-    return new_transaction
+    return service.create_stock_transaction(transaction, current_user)
 
 
-@router.get("/stock-transactions", response_model=list[schemas.StockTransactionResponse])
+@router.get("/stock-transactions", response_model=List[schemas.StockTransactionResponse])
 def get_stock_transactions(
-    hotel_id: Optional[int] = None,
-    item_id: Optional[int] = None,
-    transaction_type: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    hotel_id: Optional[int] = Query(None),
+    item_id: Optional[int] = Query(None),
+    transaction_type: Optional[str] = Query(None),
+    service: InventoryService = Depends(get_inventory_service),
+    current_user: models.User = Depends(get_current_user),
 ):
-    query = db.query(models.StockTransaction)
-
-    if current_user.role == "super-admin":
-        if hotel_id:
-            query = query.filter(models.StockTransaction.hotel_id == hotel_id)
-    else:
-        query = query.filter(models.StockTransaction.hotel_id == current_user.hotel_id)
-
-    if item_id:
-        query = query.filter(models.StockTransaction.item_id == item_id)
-
-    if transaction_type:
-        query = query.filter(models.StockTransaction.transaction_type == transaction_type)
-
-    transactions = query.order_by(models.StockTransaction.id.desc()).all()
-
-    return transactions
+    return service.get_stock_transactions(hotel_id, item_id, transaction_type, current_user)

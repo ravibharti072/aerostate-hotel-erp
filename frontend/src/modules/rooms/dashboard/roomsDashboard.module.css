@@ -1,0 +1,519 @@
+/* ==========================================================================
+   AEROSTATE PMS - ROOMS OPERATIONAL DASHBOARD
+   Compact 2-Section Layout: Live Room Status + Recently Done Operations
+   100% Visual Consistency & Seamless Alignment with PMS Dashboards
+   ========================================================================== */
+
+.rooms-dashboard-container {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background-color: #f8fafc;
+  padding: 20px 24px;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.rooms-dashboard-container.embedded-view {
+  padding: 0;
+  background-color: transparent;
+  min-height: auto;
+}
+
+/* -------------------------------------------------------------
+   TOAST NOTIFICATION
+   ------------------------------------------------------------- */
+.toast-banner {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  z-index: 9999;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: slideInToast 0.25s ease forwards;
+}
+
+.toast-banner.success {
+  background: #065f46;
+  border-left: 4px solid #10b981;
+}
+
+.toast-banner.error {
+  background: #991b1b;
+  border-left: 4px solid #ef4444;
+}
+
+@keyframes slideInToast {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* -------------------------------------------------------------
+   HEADER RIGHT ACTIONS
+   ------------------------------------------------------------- */
+.header-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.secondary-header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.secondary-header-btn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.primary-header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.primary-header-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+/* -------------------------------------------------------------
+   COMPACT STATS GRID (4 Cards)
+   ------------------------------------------------------------- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* -------------------------------------------------------------
+   TWO COMPACT SECTIONS (Section 1: Status, Section 2: Operations)
+   ------------------------------------------------------------- */
+.sections-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.operations-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.card-header-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.card-title-main {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.card-badge-muted {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+}
+
+/* -------------------------------------------------------------
+   FILTER CHIPS STRIP
+   ------------------------------------------------------------- */
+.filter-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.filter-chip:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.filter-chip.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.chip-count {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 700;
+}
+
+.filter-chip.active .chip-count {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+/* -------------------------------------------------------------
+   SECTION 1: COMPACT ROOM STATUS GRID
+   ------------------------------------------------------------- */
+.rooms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.room-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.room-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.room-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.room-num-badge {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.room-status-tag {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.room-status-tag.available {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.room-status-tag.occupied {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.room-status-tag.dirty {
+  background: #fff7ed;
+  color: #ea580c;
+  border: 1px solid #fed7aa;
+}
+
+.room-status-tag.cleaning {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.room-status-tag.maintenance {
+  background: #fdf2f8;
+  color: #db2777;
+  border: 1px solid #fbcfe8;
+}
+
+.room-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.room-guest-row {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: #f8fafc;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+/* -------------------------------------------------------------
+   SECTION 2: RECENT ROOM OPERATIONS LIST (Clean, Maint, Room Service)
+   ------------------------------------------------------------- */
+.operations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.operation-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  gap: 10px;
+  transition: all 0.15s ease;
+}
+
+.operation-item:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.op-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.op-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.op-icon-box.cleaning {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.op-icon-box.maintenance {
+  background: #f0f9ff;
+  color: #0284c7;
+}
+
+.op-icon-box.room_service {
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+.op-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.op-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.op-room-text {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.op-type-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.op-type-badge.cleaning {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.op-type-badge.maintenance {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.op-type-badge.room_service {
+  background: #ffe4e6;
+  color: #e11d48;
+}
+
+.op-meta-text {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.op-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.op-status-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: #ecfdf5;
+  color: #059669;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.op-time-text {
+  font-size: 11px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+/* -------------------------------------------------------------
+   TOGGLE VIEW ALL BUTTON & PAGINATION
+   ------------------------------------------------------------- */
+.card-bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 4px;
+}
+
+.count-info-text {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.toggle-view-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toggle-view-all-btn:hover {
+  background: #eff6ff;
+  border-color: #2563eb;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 24px 12px;
+  color: #94a3b8;
+  font-size: 12px;
+}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Settings, User, Lock, Building, Save, ShieldCheck } from "lucide-react";
 import api from "../../../api/api";
-import PortalHeader from "../../../components/PortalHeader";
+import PortalHeader from "../../../components/headers/PortalHeader";
 import styles from "./superAdminSettings.module.css";
 
 export default function SuperAdminSettingsPage() {

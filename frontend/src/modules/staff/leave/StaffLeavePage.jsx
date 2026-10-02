@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
+import api from "@api/api";
 import { 
   ArrowLeft, Plus, Calendar, CheckCircle, XCircle, Clock, Trash2, X, Filter, Check, Ban, Users, Lock, Edit, Unlock
 } from "lucide-react";
-import PortalHeader from "../../../components/PortalHeader";
-import StatCard from "../../../components/StatCard"; 
+import PortalHeader from "../../../components/headers/PortalHeader";
+import StatCard from "../../../components/cards/StatCard"; 
 import "./staffLeave.css";
 
 export default function StaffLeavePage() {
@@ -73,28 +74,20 @@ export default function StaffLeavePage() {
     setIsLoading(true);
 
     try {
-      const staffRes = await fetch("http://localhost:8000/staff", { headers: { Authorization: `Bearer ${token}` } });
-      if (staffRes.ok) {
-        const staffData = await staffRes.json();
-        setStaffList(Array.isArray(staffData) ? staffData : []);
-      }
+      const params = {};
+      if (statusFilter) params.status = statusFilter;
+      if (leaveTypeFilter) params.leave_type = leaveTypeFilter;
+      if (selectedStaffFilter) params.staff_id = selectedStaffFilter;
 
-      let leaveUrl = "http://localhost:8000/staff-leaves?";
-      if (statusFilter) leaveUrl += `status=${statusFilter}&`;
-      if (leaveTypeFilter) leaveUrl += `leave_type=${leaveTypeFilter}&`;
-      if (selectedStaffFilter) leaveUrl += `staff_id=${selectedStaffFilter}&`;
+      const [staffRes, leaveRes, attRes] = await Promise.all([
+        api.get("/staff"),
+        api.get("/staff-leaves", { params }),
+        api.get("/staff-attendance")
+      ]);
 
-      const leaveRes = await fetch(leaveUrl, { headers: { Authorization: `Bearer ${token}` } });
-      if (leaveRes.ok) {
-        const leaveData = await leaveRes.json();
-        setLeaves(Array.isArray(leaveData) ? leaveData : []);
-      }
-
-      const attRes = await fetch("http://localhost:8000/staff-attendance", { headers: { Authorization: `Bearer ${token}` } });
-      if (attRes.ok) {
-        const attData = await attRes.json();
-        setAttendanceRecords(Array.isArray(attData) ? attData : []);
-      }
+      setStaffList(Array.isArray(staffRes.data) ? staffRes.data : []);
+      setLeaves(Array.isArray(leaveRes.data) ? leaveRes.data : []);
+      setAttendanceRecords(Array.isArray(attRes.data) ? attRes.data : []);
 
     } catch (error) {
       console.error("Error loading leave management data:", error);
@@ -140,34 +133,39 @@ export default function StaffLeavePage() {
         approved_by: formData.status === "approved" ? formData.approved_by : null, remarks: formData.remarks || null,
       };
 
-      const response = await fetch("http://localhost:8000/staff-leaves", {
-        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload),
-      });
-
-      if (response.ok) { closeModal(); fetchData(); } 
-      else {
-        const errorData = await response.json();
-        setErrorMessage(errorData.detail || "Failed to submit leave request.");
-      }
-    } catch (err) { setErrorMessage("Network error occurred."); } finally { setIsSubmitting(false); }
+      await api.post("/staff-leaves", payload);
+      closeModal();
+      fetchData();
+    } catch (err) {
+      console.error("Error submitting leave request:", err);
+      const detail = err.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail : (Array.isArray(detail) ? detail.map((d) => d.msg).join(", ") : "Failed to submit leave request.");
+      setErrorMessage(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleUpdateStatus = async (leave, newStatus) => {
     try {
       const payload = { status: newStatus, approved_by: newStatus === "approved" ? user?.full_name || user?.username || "Admin" : leave.approved_by };
-      const response = await fetch(`http://localhost:8000/staff-leaves/${leave.id}`, {
-        method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload),
-      });
-      if (response.ok) fetchData(); else alert("Failed to update leave status.");
-    } catch (error) { console.error("Error updating status:", error); }
+      await api.put(`/staff-leaves/${leave.id}`, payload);
+      fetchData();
+    } catch (error) {
+      console.error("Error updating status:", error);
+      alert("Failed to update leave status.");
+    }
   };
 
   const handleDeleteLeave = async (leaveId) => {
     if (!window.confirm("Are you sure you want to delete this leave record?")) return;
     try {
-      const response = await fetch(`http://localhost:8000/staff-leaves/${leaveId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-      if (response.ok) fetchData(); else alert("Failed to delete record.");
-    } catch (err) { console.error("Error deleting leave:", err); }
+      await api.delete(`/staff-leaves/${leaveId}`);
+      fetchData();
+    } catch (err) {
+      console.error("Error deleting leave:", err);
+      alert("Failed to delete record.");
+    }
   };
 
   const isDateInLeaveRange = (dateStr, startDateStr, endDateStr) => {
@@ -259,16 +257,18 @@ export default function StaffLeavePage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const response = await fetch(`http://localhost:8000/staff/${editingStaffId}`, {
-        method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          legacy_leave_balance: parseFloat(balanceFormData.legacy_leave_balance),
-          leave_tracking_start_date: `${balanceFormData.leave_tracking_start_date}T00:00:00`
-        })
+      await api.put(`/staff/${editingStaffId}`, {
+        legacy_leave_balance: parseFloat(balanceFormData.legacy_leave_balance),
+        leave_tracking_start_date: `${balanceFormData.leave_tracking_start_date}T00:00:00`
       });
-      if (response.ok) { setIsBalanceModalOpen(false); fetchData(); } 
-      else alert("Failed to update balances.");
-    } catch (err) { console.error("Error:", err); } finally { setIsSubmitting(false); }
+      setIsBalanceModalOpen(false);
+      fetchData();
+    } catch (err) {
+      console.error("Error updating balances:", err);
+      alert("Failed to update balances.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
 

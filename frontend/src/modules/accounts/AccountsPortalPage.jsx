@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
 import { 
   Wallet, 
   HandCoins, 
@@ -11,10 +10,15 @@ import {
   Clock,
   CheckCircle
 } from "lucide-react";
-import PortalHeader from "../../components/PortalHeader";
-import StatCard from "../../components/StatCard"; 
-import ModuleCard from "../../components/ModuleCard"; 
-import ModuleWriternHeader from "../../components/ModuleWriternHeader"; // <-- Reusable header import
+
+import { useAuth } from "@context/AuthContext";
+import api from "@api/api";
+import { 
+  PortalHeader, 
+  StatCard, 
+  ModuleCard, 
+  ModuleWriternHeader 
+} from "@components";
 import "./accountsPortal.css";
 
 export default function AccountsPortalPage() {
@@ -35,14 +39,8 @@ export default function AccountsPortalPage() {
       if (!token) return;
       setIsLoading(true);
       try {
-        const res = await fetch(`http://localhost:8000/accounts/overview?salary_month=${selectedMonth}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          setMetrics(await res.json());
-        } else {
-          setMetrics(null);
-        }
+        const res = await api.get(`/accounts/overview?salary_month=${selectedMonth}`);
+        setMetrics(res.data);
       } catch (err) {
         console.error("Error fetching accounts overview:", err);
         setMetrics(null);
@@ -91,18 +89,18 @@ export default function AccountsPortalPage() {
       title: "Operational Expenses",
       icon: Receipt,
       color: "green",
-      path: null,
-      badge: "Coming Soon",
-      isComingSoon: true
+      path: "/accounts/expenses",
+      badge: "Active",
+      isComingSoon: false
     },
     {
       id: "invoices-payments",
       title: "Revenue & Billing",
       icon: TrendingUp,
       color: "orange",
-      path: null,
-      badge: "Coming Soon",
-      isComingSoon: true
+      path: "/invoices",
+      badge: "Active",
+      isComingSoon: false
     }
   ];
 
