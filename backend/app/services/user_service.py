@@ -19,6 +19,7 @@ class UserService:
         "front-desk",
         "housekeeping",
         "restaurant",
+        "kitchen",
         "inventory",
         "accountant",
         "maintenance",

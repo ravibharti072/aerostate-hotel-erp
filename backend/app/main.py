@@ -105,6 +105,32 @@ def _ensure_task_columns():
 
 _ensure_task_columns()
 
+def _ensure_room_columns():
+    try:
+        from sqlalchemy import text
+        with engine.begin() as conn:
+            res = conn.execute(text("PRAGMA table_info(rooms)")).fetchall()
+            existing_cols = {row[1] for row in res}
+            if "assigned_staff_id" not in existing_cols:
+                conn.execute(text("ALTER TABLE rooms ADD COLUMN assigned_staff_id INTEGER"))
+
+            # Populate assigned_staff_id from most recent task if room has NULL
+            conn.execute(text("""
+                UPDATE rooms
+                SET assigned_staff_id = (
+                    SELECT ht.assigned_staff_id
+                    FROM housekeeping_tasks ht
+                    WHERE ht.room_id = rooms.id AND ht.assigned_staff_id IS NOT NULL
+                    ORDER BY ht.id DESC
+                    LIMIT 1
+                )
+                WHERE rooms.assigned_staff_id IS NULL
+            """))
+    except Exception as e:
+        print("Room columns ensure error:", e)
+
+_ensure_room_columns()
+
 def _ensure_restaurant_columns():
     try:
         from sqlalchemy import text
@@ -155,6 +181,7 @@ from app.routers import (
     rooms,
     guests,
     bookings,
+    checklists,
     housekeeping,
     invoices,
     payments,
@@ -224,6 +251,7 @@ app.include_router(hotels.router)
 app.include_router(rooms.router)
 app.include_router(guests.router)
 app.include_router(bookings.router)
+app.include_router(checklists.router)
 app.include_router(housekeeping.router)
 app.include_router(invoices.router)
 app.include_router(payments.router)

@@ -655,20 +655,44 @@ class PaymentService:
                 if rid:
                     rooms_to_clean.add(int(rid))
 
-        housekeeping_tasks_data = [
-            {
+        housekeeping_tasks_data = []
+        for rid in rooms_to_clean:
+            room_obj = self.db.query(models.Room).filter(models.Room.id == rid).first()
+            staff_id = None
+            staff_name = None
+            if room_obj and room_obj.assigned_staff_id:
+                staff_obj = self.db.query(models.Staff).filter(models.Staff.id == room_obj.assigned_staff_id).first()
+                if staff_obj:
+                    staff_id = staff_obj.id
+                    staff_name = staff_obj.full_name
+            if not staff_id:
+                last_t = (
+                    self.db.query(models.HousekeepingTask)
+                    .filter(models.HousekeepingTask.room_id == rid, models.HousekeepingTask.assigned_staff_id.isnot(None))
+                    .order_by(models.HousekeepingTask.id.desc())
+                    .first()
+                )
+                if last_t:
+                    staff_id = last_t.assigned_staff_id
+                    staff_name = last_t.assigned_to
+                    if room_obj and not room_obj.assigned_staff_id:
+                        room_obj.assigned_staff_id = staff_id
+
+            housekeeping_tasks_data.append({
                 "hotel_id": booking.hotel_id,
                 "room_id": rid,
                 "booking_id": booking.id,
                 "task_type": "checkout-cleaning",
-                "priority": "high",
+                "priority": "normal",
                 "status": "pending",
-                "assigned_to": None,
-                "notes": f"Auto-created after checkout for Booking #{booking.id}",
+                "assigned_staff_id": staff_id,
+                "assigned_to": staff_name,
+                "notes": (
+                    f"Auto-created after checkout for Booking #{booking.id}"
+                    + (f"\nAuto-assigned to {staff_name}" if staff_name else "")
+                ),
                 "created_by": current_user.username,
-            }
-            for rid in rooms_to_clean
-        ]
+            })
 
         self.repo.complete_checkout_settlement(
             booking=booking,

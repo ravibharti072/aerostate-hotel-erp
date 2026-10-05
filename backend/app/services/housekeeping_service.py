@@ -7,6 +7,24 @@ from app import models, schemas
 from app.repositories.housekeeping_repository import HousekeepingRepository
 
 
+def get_last_cleaner_for_room(db: Session, room_id: int):
+    """Most recent turnover task for this room that has an attendant on it.
+
+    Used so a room that goes dirty again (guest checkout, stayover request, HOD deep clean) is
+    auto-assigned back to the attendant who handled that room last, instead of sitting unassigned
+    until the HOD picks somebody manually.
+    """
+    return (
+        db.query(models.HousekeepingTask)
+        .filter(
+            models.HousekeepingTask.room_id == room_id,
+            models.HousekeepingTask.assigned_staff_id.isnot(None),
+        )
+        .order_by(models.HousekeepingTask.id.desc())
+        .first()
+    )
+
+
 class HousekeepingService:
     HOUSEKEEPING_ALLOWED_ROLES = [
         "super-admin",
@@ -332,6 +350,8 @@ class HousekeepingService:
         task.status = new_status
         task.completed_at = datetime.utcnow()
         task.completed_by = current_user.username
+        if getattr(payload, "checklist", None) is not None:
+            task.checklist = payload.checklist
         if payload.notes:
             task.notes = f"{task.notes or ''}\nNote: {payload.notes}".strip()
         task.updated_at = datetime.utcnow()

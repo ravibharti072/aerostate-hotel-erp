@@ -8,9 +8,9 @@ from app.repositories.restaurant_repository import RestaurantRepository
 
 
 class RestaurantService:
-    ALLOWED_MENU_ROLES = ["super-admin", "hotel-admin", "manager", "restaurant"]
-    ALLOWED_ORDER_ROLES = ["super-admin", "hotel-admin", "manager", "restaurant", "front-desk"]
-    ALLOWED_TABLE_ROLES = ["super-admin", "hotel-admin", "manager", "restaurant", "front-desk"]
+    ALLOWED_MENU_ROLES = ["super-admin", "hotel-admin", "manager", "restaurant", "kitchen"]
+    ALLOWED_ORDER_ROLES = ["super-admin", "hotel-admin", "manager", "restaurant", "kitchen", "front-desk"]
+    ALLOWED_TABLE_ROLES = ["super-admin", "hotel-admin", "manager", "restaurant", "kitchen", "front-desk"]
 
     ALLOWED_ORDER_TYPES = ["dine-in", "room-service", "takeaway"]
     ALLOWED_ORDER_STATUSES = ["pending", "preparing", "served", "completed", "cancelled"]
@@ -28,10 +28,10 @@ class RestaurantService:
     # -------------------------------------------------------------
 
     def _is_restaurant_user(self, current_user: models.User) -> bool:
-        if current_user.role in ["super-admin", "hotel-admin", "manager", "restaurant", "front-desk", "receptionist"]:
+        if current_user.role in ["super-admin", "hotel-admin", "manager", "restaurant", "kitchen", "front-desk", "receptionist"]:
             return True
         allowed = [str(m).lower() for m in (current_user.allowed_modules or [])]
-        if "restaurant" in allowed or "front-desk" in allowed or "all" in allowed:
+        if "restaurant" in allowed or "kitchen" in allowed or "front-desk" in allowed or "all" in allowed:
             return True
         if current_user.staff and current_user.staff.department:
             dept = str(current_user.staff.department).lower()

@@ -398,12 +398,28 @@ export default function EmployeePortalAccessPage() {
                               textTransform: "uppercase",
                               padding: "2px 6px",
                               borderRadius: "4px",
-                              background: isHead ? "#fef3c7" : "#e0f2fe",
-                              color: isHead ? "#b45309" : "#0369a1",
-                              border: `1px solid ${isHead ? "#fcd34d" : "#bae6fd"}`,
+                              background:
+                                desig.badge === "Kitchen"
+                                  ? "#ffedd5"
+                                  : isHead
+                                  ? "#fef3c7"
+                                  : "#e0f2fe",
+                              color:
+                                desig.badge === "Kitchen"
+                                  ? "#c2410c"
+                                  : isHead
+                                  ? "#b45309"
+                                  : "#0369a1",
+                              border: `1px solid ${
+                                desig.badge === "Kitchen"
+                                  ? "#fed7aa"
+                                  : isHead
+                                  ? "#fcd34d"
+                                  : "#bae6fd"
+                              }`,
                             }}
                           >
-                            {isHead ? "HOD" : "Staff"}
+                            {desig.badge || (isHead ? "HOD" : "Staff")}
                           </span>
                         </div>
                       </td>

@@ -23,11 +23,13 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
+  History,
   ShieldCheck,
   PackageCheck,
   Activity,
   CheckCheck,
   Trash2,
+  ClipboardCheck,
 } from "lucide-react";
 
 import api from "@api/api";
@@ -46,6 +48,236 @@ export const parseServerDate = (dateVal) => {
   }
   const d = new Date(str);
   return isNaN(d.getTime()) ? null : d;
+};
+
+/** "Oct 2, 2026, 06:20 PM" for the lifecycle log rows. */
+export const formatTrailDateTime = (dateVal) => {
+  const d = parseServerDate(dateVal);
+  if (!d || isNaN(d.getTime())) return "time not recorded";
+  return d.toLocaleString([], {
+    month: "short", day: "numeric", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: true,
+  });
+};
+
+/**
+ * Returns standardized cleaning type metadata, badge styling class, and contextual subtext.
+ * Guarantees human-friendly labels (Checkout Turnover / Stayover Cleaning / Deep Sanitization / Room Cleaning).
+ */
+export const getTaskTypeMeta = (rawType, task, roomStatus, isOccupied) => {
+  const norm = String(rawType || "").toLowerCase().trim();
+  let key = "checkout-cleaning";
+  let label = "Checkout Turnover";
+  let badgeClass = "cleaning-type-checkout";
+  let badgeColor = "#1d4ed8";
+  let badgeBg = "#eff6ff";
+  let badgeBorder = "#bfdbfe";
+
+  if (norm === "stayover-cleaning" || norm.includes("stayover") || (isOccupied && !norm.includes("deep"))) {
+    key = "stayover-cleaning";
+    label = "Stayover Cleaning";
+    badgeClass = "cleaning-type-stayover";
+    badgeColor = "#b45309";
+    badgeBg = "#fffbeb";
+    badgeBorder = "#fde68a";
+  } else if (norm === "deep-cleaning" || norm.includes("deep") || norm.includes("sanitize")) {
+    key = "deep-cleaning";
+    label = "Deep Sanitization";
+    badgeClass = "cleaning-type-deep";
+    badgeColor = "#7c3aed";
+    badgeBg = "#f5f3ff";
+    badgeBorder = "#ddd6fe";
+  } else if (norm === "room-cleaning" || norm === "cleaning") {
+    key = "room-cleaning";
+    label = "Room Cleaning";
+    badgeClass = "cleaning-type-room";
+    badgeColor = "#047857";
+    badgeBg = "#ecfdf5";
+    badgeBorder = "#a7f3d0";
+  } else if (norm === "checkout-cleaning" || norm.includes("turnover") || norm.includes("checkout")) {
+    key = "checkout-cleaning";
+    label = "Checkout Turnover";
+    badgeClass = "cleaning-type-checkout";
+    badgeColor = "#1d4ed8";
+    badgeBg = "#eff6ff";
+    badgeBorder = "#bfdbfe";
+  } else if (norm) {
+    key = norm;
+    label = norm.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    badgeClass = "cleaning-type-checkout";
+    badgeColor = "#1d4ed8";
+    badgeBg = "#eff6ff";
+    badgeBorder = "#bfdbfe";
+  }
+
+  // Determine intelligent contextual subtext
+  let subtext = "Raised automatically at checkout";
+  const notesLower = String(task?.notes || "").toLowerCase();
+  const createdByLower = String(task?.created_by || "").toLowerCase();
+
+  if (key === "stayover-cleaning") {
+    subtext = "Daily guest stayover service";
+  } else if (key === "deep-cleaning") {
+    subtext = "Periodic deep sanitization";
+  } else if (
+    createdByLower.includes("auto") ||
+    createdByLower.includes("checkout") ||
+    notesLower.includes("auto-created") ||
+    notesLower.includes("turnover cleaning for room")
+  ) {
+    subtext = "Raised automatically at checkout";
+  } else if (
+    createdByLower.includes("hod") ||
+    createdByLower.includes("supervisor") ||
+    createdByLower.includes("manager") ||
+    notesLower.includes("assigned by supervisor") ||
+    notesLower.includes("assigned by hod")
+  ) {
+    subtext = "Assigned by the HOD";
+  } else if (roomStatus === "clean-inspected") {
+    subtext = "Turnover cycle completed";
+  } else {
+    subtext = "Raised automatically at checkout";
+  }
+
+  return { key, label, subtext, badgeClass, badgeColor, badgeBg, badgeBorder };
+};
+
+/**
+ * Builds the room-turnover lifecycle trail for one task, e.g.
+ *   Assigned -> Cleaning Started -> Cleaning Completed -> HOD Cleared / Sent back for re-clean
+ * Only the CURRENT cycle is returned: a room that went dirty -> cleaned -> failed -> re-cleaned ->
+ * passed has several historical attempts, and the HOD only cares about the live one.
+ */
+export const buildTaskLifecycleEvents = (task) => {
+  if (!task) return [];
+  const notes = String(task.notes || "");
+  const roomLabel = task.room_number || task.room_id || "";
+  const events = [];
+  const add = (ev) => events.push(ev);
+
+  const base = (stage, stageLabel, badgeColor, title, details, timestamp, actor, role) => ({
+    id: `${task.id}-${stage}-${events.length}`,
+    stage, stageLabel, badgeColor, title, details, timestamp, actor, role,
+  });
+
+  // 1. Created / assigned when the room went dirty
+  add({
+    ...base("ASSIGNED", "Assigned by HOD", "#2563eb", `Room ${roomLabel} assigned for turnover`,
+      `Assigned to ${task.assigned_to || "unassigned"}. Priority: ${String(task.priority || "normal").toUpperCase()}.`,
+      task.created_at, task.created_by || "Housekeeping HOD", "Housekeeping HOD / Supervisor"),
+    _origin: true,
+  });
+
+  // 2. Cleaning started (task field)
+  if (task.started_at) {
+    add(base("STARTED", "Cleaning Started", "#d97706", `Cleaning started for Room ${roomLabel}`,
+      "Attendant started the turnover: linen turnaround, trash removal and bathroom sanitization.",
+      task.started_at, task.started_by || task.assigned_to || "Room Attendant", "Room Attendant"));
+  }
+
+  // 3. Walk the note log so each completion / verdict lands at its recorded position
+  let inherited = task.started_at || task.created_at;
+  const isoFrom = (line) => {
+    const m = line.match(/at\s+([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:\.]+Z)/i);
+    return m ? m[1] : null;
+  };
+
+  notes.split("\n").map((l) => l.trim()).filter(Boolean).forEach((line) => {
+    const found = isoFrom(line);
+    const at = found || inherited;
+    if (found) inherited = found;
+
+    if (/^Assignment:/i.test(line)) {
+      add({
+        ...base("ASSIGNED", "Assignment Updated", "#2563eb", `Attendant assigned for Room ${roomLabel}`,
+          line.replace(/^Assignment:\s*/i, "").trim(),
+          at, task.assigned_to || "Housekeeping HOD", "Housekeeping HOD / Supervisor"),
+        _isNote: true,
+      });
+    } else if (/\[Cleaning Completed/i.test(line)) {
+      const actor = (line.match(/by\s+(.+?)\s+at\s/i) || [])[1] || task.completed_by || task.assigned_to || "Attendant";
+      add(base("COMPLETED", "Cleaning Completed", "#0284c7",
+        `Turnover completed & submitted for Room ${roomLabel}`,
+        "Submitted to the HOD for inspection clearance.", at, actor.trim(), "Room Attendant"));
+    } else if (/\[Inspection PASSED/i.test(line)) {
+      const actor = (line.match(/by\s+(.+?)(?:\s+at\s|:|\]|$)/i) || [])[1] || "Housekeeping HOD";
+      const remarks = (line.match(/Remarks:\s*(.*)/i) || [])[1] || "";
+      add(base("INSPECTION_PASSED", "HOD Cleared & Passed", "#059669",
+        `Inspection passed for Room ${roomLabel}`,
+        remarks.trim() || "Room verified clean and marked Available in the PMS.",
+        at, actor.trim(), "Housekeeping HOD"));
+    } else if (/\[Inspection FAILED/i.test(line)) {
+      const actor = (line.match(/by\s+(.+?)(?:\s+at\s|:|\]|$)/i) || [])[1] || "Housekeeping HOD";
+      const reason = (line.match(/Reason:\s*(.*)/i) || [])[1] || "";
+      add(base("INSPECTION_FAILED", "HOD Sent Back for Re-clean", "#dc2626",
+        `Inspection rejected for Room ${roomLabel}`,
+        reason.trim() || "Room returned to Dirty / Departed for rework.",
+        at, actor.trim(), "Housekeeping HOD"));
+    } else if (/\[(Turnover Re-cleaning|Cleaning) Started/i.test(line)) {
+      const actor = (line.match(/by\s+([^\s\]]+)/i) || [])[1] || task.assigned_to || "Attendant";
+      add({
+        ...base("STARTED", "Cleaning Started", "#d97706", `Cleaning started for Room ${roomLabel}`,
+          "Attendant resumed the turnover work.", at, actor.trim(), "Room Attendant"),
+        _isNote: true,
+      });
+    }
+  });
+
+  // 4. Submitted and still waiting on the HOD
+  const low = notes.toLowerCase();
+  const lastVerdict = Math.max(low.lastIndexOf("[inspection passed"), low.lastIndexOf("[inspection failed"));
+  const lastSubmit = low.lastIndexOf("[cleaning completed");
+  if (lastSubmit !== -1 && lastSubmit > lastVerdict && task.completed_at) {
+    add(base("AWAITING_HOD", "Awaiting HOD Inspection", "#9333ea",
+      `Room ${roomLabel} waiting for HOD clearance`,
+      "Turnover submitted; waiting for the HOD to pass or send it back.",
+      task.completed_at, "Housekeeping HOD / Supervisor", "HOD Clearance Queue"));
+  }
+
+  // 5. Keep only the trailing cycle: everything after the second-to-last verdict, i.e. the last
+  //    attempt plus the verdict that closed it.
+  const verdictIdx = events
+    .map((ev, i) => ({ ev, i }))
+    .filter(({ ev }) => ev.stage === "INSPECTION_PASSED" || ev.stage === "INSPECTION_FAILED")
+    .map(({ i }) => i);
+  const lastCycleIdx = verdictIdx.length > 1 ? verdictIdx[verdictIdx.length - 2] : -1;
+  const cycleFromMs =
+    lastCycleIdx >= 0
+      ? parseServerDate(events[lastCycleIdx].timestamp)?.getTime() ?? 0
+      : parseServerDate(task.started_at || task.created_at)?.getTime() ?? 0;
+  const cycleEvents = lastCycleIdx >= 0 ? events.slice(lastCycleIdx) : events;
+
+  // 6. Chronological order. Note-only entries carry no time of their own, so they inherit the nearest
+  //    earlier recorded timestamp instead of the task's current updated_at.
+  const ordered = cycleEvents
+    .map((ev) => ({ ...ev, _at: parseServerDate(ev.timestamp)?.getTime() ?? 0 }))
+    .sort((a, b) => a._at - b._at || String(a.id).localeCompare(String(b.id)))
+    .filter((ev) => ev._origin || ev._at >= cycleFromMs);
+
+  // 7. Drop noise: repeated assignment clicks, and a cycle start recorded twice (task field + note).
+  let assignmentSeen = false;
+  const seenStartAt = new Set(
+    ordered.filter((ev) => ev.stage === "STARTED" && !ev._isNote).map((ev) => ev.timestamp),
+  );
+  return ordered
+    .filter((ev) => {
+      if (ev._origin) {
+        assignmentSeen = true;
+        return true;
+      }
+      if (ev.stage === "STARTED" && ev._isNote) {
+        if (seenStartAt.has(ev.timestamp)) return false;
+        seenStartAt.add(ev.timestamp);
+        return true;
+      }
+      if (ev.stage === "ASSIGNED") {
+        if (assignmentSeen) return false;
+        assignmentSeen = true;
+      }
+      return true;
+    })
+    .map(({ _at, _isNote, _origin, ...ev }, i) => ({ ...ev, id: `${task.id}-${ev.stage}-${i}` }));
 };
 
 export const getRecordTimingInfo = (statusKey, activeTask) => {
@@ -167,9 +399,14 @@ export default function HousekeepingDashboard({
   const [searchText, setSearchText] = useState("");
   const [selectedFloor, setSelectedFloor] = useState("all");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().substring(0, 10));
-  const [sortMode, setSortMode] = useState("workflow");
+  const [sortMode, setSortMode] = useState("room_asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  // Cleaning timing log has its own pager so it does not disturb the room table
+  const [logPage, setLogPage] = useState(1);
+  const [logPageSize, setLogPageSize] = useState(20);
+  // Lifecycle audit trail (Dirty -> Cleaning Started -> Completed -> Inspected) for one room
+  const [trailTask, setTrailTask] = useState(null);
 
   // Redirect Housekeeping Staff directly to Staff Portal
   useEffect(() => {
@@ -338,22 +575,16 @@ export default function HousekeepingDashboard({
         priority = "VIP ARRIVAL";
       }
 
-      // Assigned attendant
-      let attendantName = activeTask?.assigned_to;
-      if (!attendantName && activeTask?.assigned_staff_id) {
-        const matched = rawStaff.find((s) => s.id === activeTask.assigned_staff_id);
-        if (matched) attendantName = matched.full_name;
-      }
-      if (!attendantName && activeTask?.completed_by) {
-        attendantName = activeTask.completed_by;
-      }
-      if (!attendantName) attendantName = "Unassigned";
+      // Assigned attendant: room.assigned_staff_id is the primary designated attendant!
+      const targetStaffId = r.assigned_staff_id || activeTask?.assigned_staff_id;
+      const matchedStaff = targetStaffId ? rawStaff.find((s) => Number(s.id) === Number(targetStaffId)) : null;
 
-      const staffObj = activeTask?.assigned_staff_id
-        ? rawStaff.find((s) => s.id === activeTask.assigned_staff_id)
-        : (attendantName !== "Unassigned"
-            ? rawStaff.find((s) => s.full_name?.toLowerCase() === attendantName?.toLowerCase())
-            : null);
+      let attendantName = matchedStaff?.full_name || activeTask?.assigned_to || activeTask?.completed_by || "Unassigned";
+      if (attendantName === "Unassigned" && matchedStaff) {
+        attendantName = matchedStaff.full_name;
+      }
+
+      const staffObj = matchedStaff || (attendantName !== "Unassigned" ? rawStaff.find((s) => s.full_name?.toLowerCase() === attendantName?.toLowerCase()) : null);
       if (staffObj && (!attendantName || attendantName === "Unassigned")) {
         attendantName = staffObj.full_name;
       }
@@ -412,65 +643,35 @@ export default function HousekeepingDashboard({
         lastCleanedAt: activeTask?.completed_at
           ? parseServerDate(activeTask.completed_at)?.toLocaleDateString()
           : "Today",
+        // Raw task row so the timing log can reuse the lifecycle builder without re-fetching
+        rawTask: activeTask || null,
+        // Raw DB status of the active task (pending / in-progress / completed / archived)
+        taskStatus: activeTask ? String(activeTask.status || "") : "",
+        // Standardized cleaning job metadata (Checkout Turnover, Stayover Cleaning, Deep Sanitization, Room Cleaning)
+        taskType: (() => {
+          const rawType = activeTask?.task_type || activeTask?.taskType || latestTaskOverall?.task_type || latestTaskOverall?.taskType || (isOccupied ? "stayover-cleaning" : "checkout-cleaning");
+          return getTaskTypeMeta(rawType, activeTask || latestTaskOverall, statusKey, isOccupied).key;
+        })(),
+        taskTypeKey: (() => {
+          const rawType = activeTask?.task_type || activeTask?.taskType || latestTaskOverall?.task_type || latestTaskOverall?.taskType || (isOccupied ? "stayover-cleaning" : "checkout-cleaning");
+          return getTaskTypeMeta(rawType, activeTask || latestTaskOverall, statusKey, isOccupied).key;
+        })(),
+        taskTypeLabel: (() => {
+          const rawType = activeTask?.task_type || activeTask?.taskType || latestTaskOverall?.task_type || latestTaskOverall?.taskType || (isOccupied ? "stayover-cleaning" : "checkout-cleaning");
+          return getTaskTypeMeta(rawType, activeTask || latestTaskOverall, statusKey, isOccupied).label;
+        })(),
+        taskTypeSubtext: (() => {
+          const rawType = activeTask?.task_type || activeTask?.taskType || latestTaskOverall?.task_type || latestTaskOverall?.taskType || (isOccupied ? "stayover-cleaning" : "checkout-cleaning");
+          return getTaskTypeMeta(rawType, activeTask || latestTaskOverall, statusKey, isOccupied).subtext;
+        })(),
+        taskTypeBadgeClass: (() => {
+          const rawType = activeTask?.task_type || activeTask?.taskType || latestTaskOverall?.task_type || latestTaskOverall?.taskType || (isOccupied ? "stayover-cleaning" : "checkout-cleaning");
+          return getTaskTypeMeta(rawType, activeTask || latestTaskOverall, statusKey, isOccupied).badgeClass;
+        })(),
       };
     });
 
-    // Generate dedicated records for Archived / Soft-Deleted turnover entries
-    const archivedTasks = rawTasks.filter((t) => t.status === "archived" || t.status === "deleted");
-    const archivedRecords = archivedTasks.map((task) => {
-      const matchedRoom = rawRooms.find((r) => Number(r.id) === Number(task.room_id));
-      const roomNumber = matchedRoom ? String(matchedRoom.room_number) : (task.room_number || String(task.room_id));
-      const floorNum = String(matchedRoom?.floor || task.floor || "1");
-      const wingName = `Floor ${floorNum} • Wing ${
-        floorNum === "1" ? "East" : floorNum === "2" ? "West" : "Garden View"
-      }`;
-      const attendantName = task.assigned_to || task.completed_by || "Attendant";
-      const initials = attendantName
-        .split(" ")
-        .map((p) => p[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2);
-
-      return {
-        id: matchedRoom ? matchedRoom.id : task.room_id,
-        isArchived: true,
-        taskId: `HK-26-${task.id}`,
-        dbTaskId: task.id,
-        roomNumber,
-        floor: floorNum,
-        wing: wingName,
-        roomType: matchedRoom?.room_type || "Deluxe",
-        status: "archived",
-        statusLabel: "Deleted / Archived",
-        occupancy: "Historical Task",
-        priority: (task.priority || "normal").toUpperCase(),
-        timingInfo: {
-          primary: task.updated_at
-            ? parseServerDate(task.updated_at)?.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) || "Archived"
-            : "Archived",
-          secondary: "Removed from Active",
-          badgeColor: "#64748b",
-          isLiveTimer: false,
-        },
-        timestamp: task.updated_at
-          ? parseServerDate(task.updated_at)?.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : "Archived",
-        assignedAttendant: attendantName,
-        assignedStaffId: task.assigned_staff_id,
-        attendantInitials: initials,
-        shift: "Archived Record",
-        notes: task.notes || "Archived turnover record",
-        lastCleanedAt: task.completed_at
-          ? parseServerDate(task.completed_at)?.toLocaleDateString()
-          : "-",
-      };
-    });
-
-    return [...liveRecords.filter(Boolean), ...archivedRecords];
+    return liveRecords.filter(Boolean);
   };
 
   // Fetch Original Data Directly from Backend Server
@@ -592,12 +793,8 @@ export default function HousekeepingDashboard({
       result = result.filter((r) => r.status === "in-cleaning" || r.status === "stayover-cleaning");
     } else if (activeTab === "inspection") {
       result = result.filter((r) => r.status === "awaiting-inspection");
-    } else if (activeTab === "inspected") {
-      result = result.filter((r) => r.status === "clean-inspected");
     } else if (activeTab === "maintenance") {
       result = result.filter((r) => r.status === "maintenance");
-    } else if (activeTab === "archived") {
-      result = result.filter((r) => r.status === "archived");
     }
 
     if (selectedFloor !== "all") {
@@ -640,6 +837,59 @@ export default function HousekeepingDashboard({
     const start = (currentPage - 1) * pageSize;
     return filteredRecords.slice(start, start + pageSize);
   }, [filteredRecords, currentPage, pageSize]);
+
+  // Cleaning timing log: TODAY's events from every room's latest cleaning cycle, newest first.
+  // This replaces the removed "Inspected & Ready" tab — finished rooms are represented here by their
+  // lifecycle stages (assigned -> cleaning started -> completed -> HOD verdict) with real timestamps.
+  const timingLogRows = useMemo(() => {
+    const now = new Date();
+    const isToday = (dateVal) => {
+      const d = parseServerDate(dateVal);
+      return (
+        !!d &&
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()
+      );
+    };
+
+    const rows = [];
+    records.forEach((item) => {
+      if (!item.rawTask) return;
+      buildTaskLifecycleEvents(item.rawTask).forEach((ev) => {
+        if (!isToday(ev.timestamp)) return;
+        rows.push({
+          ...ev,
+          roomNumber: item.roomNumber,
+          boardStatusLabel: item.statusLabel,
+          boardTaskId: item.taskId,
+          taskTypeKey: item.taskTypeKey || "checkout-cleaning",
+          taskTypeLabel: item.taskTypeLabel || "Checkout Turnover",
+          taskTypeBadgeClass: item.taskTypeBadgeClass || "cleaning-type-checkout",
+          _at: parseServerDate(ev.timestamp)?.getTime() || 0,
+        });
+      });
+    });
+    return rows.sort((a, b) => b._at - a._at);
+  }, [records]);
+
+  // 20 entries per page by default
+  const logTotalPages = Math.max(1, Math.ceil(timingLogRows.length / (Number(logPageSize) || 20)));
+  const pagedTimingLog = useMemo(() => {
+    const size = Number(logPageSize) || 20;
+    return timingLogRows.slice((logPage - 1) * size, (logPage - 1) * size + size);
+  }, [timingLogRows, logPage, logPageSize]);
+
+  // Keep the log on a valid page when its row count shrinks (e.g. a new day starts)
+  useEffect(() => {
+    if (logPage > logTotalPages) setLogPage(1);
+  }, [logPage, logTotalPages]);
+
+  // The Deleted / Archived and Inspected & Ready views were removed from this board, so never leave
+  // the room list parked on one of them.
+  useEffect(() => {
+    if (activeTab === "archived" || activeTab === "inspected") setActiveTab("all");
+  }, [activeTab]);
 
   // Real Attendant Workload Tracker Data
   const attendantWorkload = useMemo(() => {
@@ -916,6 +1166,7 @@ export default function HousekeepingDashboard({
   };
 
   // Quick-Assign: directly assign staff from inline dropdown (no full modal needed)
+  // Quick-Assign: directly assign staff from inline dropdown (no full modal needed)
   const handleQuickAssign = async (item, staffId) => {
     if (!staffId) { showToast("Please select a staff member.", "error"); return; }
     setQuickAssigning(true);
@@ -924,37 +1175,14 @@ export default function HousekeepingDashboard({
       const staffObj = staffList.find((s) => Number(s.id) === sid);
       const roomId = item.id;
 
-      // Find existing active task or create new one
-      let existingTaskId = item.dbTaskId;
-      if (!existingTaskId && roomId) {
-        const existing = tasks.find(
-          (t) => Number(t.room_id) === Number(roomId) && ["pending", "assigned", "in-progress"].includes(t.status)
-        );
-        if (existing) existingTaskId = existing.id;
-      }
-
-      if (existingTaskId) {
-        await api.post(`/housekeeping/tasks/${existingTaskId}/assign`, {
-          staff_id: sid,
-          assigned_to_name: staffObj?.full_name,
-          notes: "Cleaning task assigned by supervisor.",
-        });
-      } else {
-        await api.post("/housekeeping/tasks", {
-          hotel_id: getLoggedInHotelId() || 1,
-          room_id: roomId,
-          assigned_staff_id: sid,
-          assigned_to: staffObj?.full_name,
-          task_type: "checkout-cleaning",
-          priority: "normal",
-          status: "pending",
-          notes: "Cleaning task assigned by supervisor.",
-        });
-      }
+      // Assign staff permanently to this room & update any active task
+      await api.post(`/housekeeping/rooms/${roomId}/assign-staff`, {
+        staff_id: sid,
+      });
 
       setQuickAssignItemId(null);
       setQuickAssignStaffId("");
-      showToast(`Room ${item.roomNumber} assigned to ${staffObj?.full_name || "attendant"}.`, "success");
+      showToast(`Room ${item.roomNumber} designated to ${staffObj?.full_name || "attendant"}. Future turnovers will auto-assign to them.`, "success");
       await loadBackendData();
     } catch (err) {
       console.error("Quick assign error:", err);
@@ -966,16 +1194,14 @@ export default function HousekeepingDashboard({
 
   // Auto-Assign Dirty Room: finds previously assigned staff and assigns instantly
   const handleAutoAssignDirty = async (item) => {
-    // Try to find the last assigned staff from previous tasks for this room
     const prevTask = [...tasks]
       .filter((t) => Number(t.room_id) === Number(item.id) && t.assigned_staff_id)
       .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))[0];
 
-    const autoStaffId = prevTask?.assigned_staff_id || item.assignedStaffId;
+    const autoStaffId = item.assignedStaffId || prevTask?.assigned_staff_id;
     if (autoStaffId) {
       await handleQuickAssign(item, autoStaffId);
     } else if (staffList.length > 0) {
-      // Assign to first available staff if no history
       await handleQuickAssign(item, staffList[0].id);
     } else {
       showToast("No housekeeping staff available for auto-assignment.", "error");
@@ -1014,41 +1240,13 @@ export default function HousekeepingDashboard({
       const roomId = targetRoom ? targetRoom.id : Number(assignForm.target_room_id || assignForm.room_id);
       const staffObj = staffList.find((s) => Number(s.id) === staffId);
 
-      // Check if this room already has an active task that can be assigned
-      let existingTaskId = assignForm.task_id;
-      if (!existingTaskId && roomId) {
-        const existingTask = tasks.find(
-          (t) => Number(t.room_id) === Number(roomId) && ["pending", "assigned", "in-progress"].includes(t.status)
-        );
-        if (existingTask) existingTaskId = existingTask.id;
-      }
-
-      if (existingTaskId) {
-        await api.post(`/housekeeping/tasks/${existingTaskId}/assign`, {
-          staff_id: staffId,
-          assigned_to_name: staffObj?.full_name,
-          notes: assignForm.notes || "Cleaning task assigned by supervisor.",
-        });
-      } else {
-        const payload = {
-          hotel_id: getLoggedInHotelId() || 1,
-          room_id: roomId,
-          assigned_staff_id: staffId,
-          assigned_to: staffObj?.full_name,
-          task_type: assignForm.task_type || "checkout-cleaning",
-          priority: assignForm.priority || "normal",
-          status: "pending",
-          notes: assignForm.notes || "Cleaning task assigned by supervisor.",
-        };
-        await api.post("/housekeeping/tasks", payload);
-      }
-
-      if (roomId) {
-        await api.put(`/rooms/${roomId}/status`, { status: "dirty" }).catch(() => {});
-      }
+      // Assign staff permanently to this room & update any active task
+      await api.post(`/housekeeping/rooms/${roomId}/assign-staff`, {
+        staff_id: staffId,
+      });
 
       setIsAssignModalOpen(false);
-      showToast(`Task assigned to ${staffObj?.full_name || "attendant"} for Room ${targetRoom?.room_number || assignForm.room_id}.`, "success");
+      showToast(`Room ${targetRoom?.room_number || assignForm.room_id} designated to ${staffObj?.full_name || "attendant"}.`, "success");
       await loadBackendData();
     } catch (err) {
       console.error("Assign task error:", err);
@@ -1134,6 +1332,54 @@ export default function HousekeepingDashboard({
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
             <button
               type="button"
+              onClick={() => navigate("/checklists")}
+              className="portal-action-btn"
+              style={{
+                background: "#ffffff",
+                color: "#1e293b",
+                border: "1px solid #cbd5e1",
+                padding: "8px 14px",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: "600",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                whiteSpace: "nowrap",
+              }}
+              title="Configure dynamic turnover and inspection checklists"
+            >
+              <ClipboardCheck size={16} color="#059669" />
+              Cleaning Checklists
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/housekeeping/staff")}
+              className="portal-action-btn"
+              style={{
+                background: "#ffffff",
+                color: "#1e293b",
+                border: "1px solid #cbd5e1",
+                padding: "8px 14px",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: "600",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                whiteSpace: "nowrap",
+              }}
+              title="Open Room Attendant Cleaning Portal"
+            >
+              <Users size={16} color="#2563eb" />
+              Staff View
+            </button>
+            <button
+              type="button"
               onClick={() => handleOpenAssignModal()}
               className="portal-action-btn"
               style={{
@@ -1204,12 +1450,13 @@ export default function HousekeepingDashboard({
           colorTheme="orange"
           onClick={() => setActiveTab("in-cleaning")}
         />
+        {/* Ready-for-check-in tally only — the "Inspected & Ready" tab was removed, so this card no
+            longer drives the room list. */}
         <StatCard
           title="Ready for Check-In"
           value={`${stats.ready} Ready`}
           Icon={CheckCircle2}
           colorTheme="green"
-          onClick={() => setActiveTab("inspected")}
         />
       </div>
 
@@ -1233,9 +1480,6 @@ export default function HousekeepingDashboard({
             { key: "dirty", label: "Dirty / Departed", count: tabCounts.dirty },
             { key: "in-cleaning", label: "In Cleaning", count: tabCounts.inCleaning },
             { key: "inspection", label: "Awaiting Inspection", count: tabCounts.inspection },
-            { key: "inspected", label: "Inspected & Ready", count: tabCounts.inspected },
-            { key: "maintenance", label: "Maintenance Blocked", count: tabCounts.maintenance },
-            { key: "archived", label: "Deleted / Archived", count: tabCounts.archived },
           ].map((chip) => (
             <button
               key={chip.key}
@@ -1304,9 +1548,9 @@ export default function HousekeepingDashboard({
               }}
               className="dir-filter-select"
             >
+              <option value="room_asc">Room Number (101 → 303)</option>
               <option value="workflow">Workflow Order (Dirty → In Cleaning → Inspection → Ready)</option>
               <option value="priority">Highest Priority First</option>
-              <option value="room_asc">Room Number (Asc)</option>
               <option value="status">Status Grouping</option>
             </select>
 
@@ -1315,7 +1559,7 @@ export default function HousekeepingDashboard({
               onClick={() => {
                 setSearchText("");
                 setSelectedFloor("all");
-                setSortMode("workflow");
+                setSortMode("room_asc");
                 setActiveTab("all");
                 setCurrentPage(1);
               }}
@@ -1335,21 +1579,22 @@ export default function HousekeepingDashboard({
               <thead>
                 <tr>
                   <th style={{ minWidth: "160px" }}>Room & Location</th>
-                  <th style={{ minWidth: "210px" }}>Assigned Attendant & Shift</th>
-                  <th style={{ minWidth: "170px" }}>Room Status & Occupancy</th>
-                  <th style={{ minWidth: "280px", textAlign: "right" }}>Actions</th>
+                  <th style={{ minWidth: "200px" }}>Assigned Attendant & Shift</th>
+                  <th style={{ minWidth: "165px" }}>Room Status & Occupancy</th>
+                  <th style={{ minWidth: "150px" }}>Cleaning Type</th>
+                  <th style={{ minWidth: "200px", textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="4" className={styles["empty-state"]}>
+                    <td colSpan="5" className={styles["empty-state"]}>
                       Loading original records from server...
                     </td>
                   </tr>
                 ) : paginatedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className={styles["empty-state"]}>
+                    <td colSpan="5" className={styles["empty-state"]}>
                       No housekeeping records found matching current filters.
                     </td>
                   </tr>
@@ -1359,11 +1604,14 @@ export default function HousekeepingDashboard({
                     const isAwaitingInspection = item.status === "awaiting-inspection";
                     const isInspected = item.status === "clean-inspected";
                     const isMaintenance = item.status === "maintenance";
-                    const isArchived = item.status === "archived";
                     const isCleaning = item.status === "in-cleaning" || item.status === "stayover-cleaning";
+                    // Reassigning is available on every room in the list — the HOD owns staffing. The
+                    // backend keeps a submitted turnover in the inspection queue and only swaps the
+                    // attendant, so assigning can never pull work back out of the HOD's queue.
+                    const canAssign = !isMaintenance;
 
                     return (
-                      <tr key={item.isArchived ? `archived-${item.dbTaskId}` : item.id}>
+                      <tr key={item.id}>
                         {/* 1. Room & Location */}
                         <td>
                           <div className={styles["room-badge-wrap"]}>
@@ -1377,9 +1625,17 @@ export default function HousekeepingDashboard({
                               <div className={styles["room-sub-meta"]}>
                                 {item.roomType} • {item.wing}
                               </div>
-                              <span className={styles["task-id-code"]}>
-                                {item.taskId}
-                              </span>
+                              {/* Timing log is only for rooms still in the cleaning workflow. */}
+                              {!isInspected && (
+                                <button
+                                  type="button"
+                                  className={styles["task-id-link"]}
+                                  onClick={() => setTrailTask(item)}
+                                  title="View this room's current cleaning cycle with timings"
+                                >
+                                  <History size={11} /> {item.taskId} • Timing log
+                                </button>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -1414,18 +1670,14 @@ export default function HousekeepingDashboard({
                                   ? styles["inspected"]
                                   : isMaintenance
                                   ? styles["maintenance"]
-                                  : isArchived
-                                  ? styles["archived"]
                                   : styles["cleaning"]
                               }`}
-                              style={isArchived ? { background: "#f1f5f9", color: "#64748b", border: "1px solid #cbd5e1" } : {}}
                             >
                               {isInspected && <Check size={11} />}
                               {isDirty && <Clock size={11} />}
                               {isAwaitingInspection && <Sparkles size={11} />}
                               {isMaintenance && <AlertTriangle size={11} />}
-                              {isArchived && <Trash2 size={11} />}
-                              {!isDirty && !isInspected && !isAwaitingInspection && !isMaintenance && !isArchived && <RotateCw size={11} />}
+                              {!isDirty && !isInspected && !isAwaitingInspection && !isMaintenance && <RotateCw size={11} />}
                               {item.statusLabel}
                             </span>
                             <span className={styles["occupancy-tag"]}>
@@ -1433,9 +1685,23 @@ export default function HousekeepingDashboard({
                             </span>
                           </div>
                         </td>
+                        {/* 4. Cleaning Type — checkout turnover vs stayover vs HOD deep clean */}
+                        <td>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                            <span
+                              className={`${styles["cleaning-type-tag"]} ${styles[item.taskTypeBadgeClass] || styles["cleaning-type-checkout"]}`}
+                              title={`Cleaning job type: ${item.taskTypeLabel}`}
+                            >
+                              {item.taskTypeLabel}
+                            </span>
+                            <span className={styles["occupancy-tag"]}>
+                              {item.taskTypeSubtext}
+                            </span>
+                          </div>
+                        </td>
                         {/* 5. Actions */}
                         <td>
-                          <div className={styles["row-actions-group"]} style={{ justifyContent: "flex-end" }}>
+                          <div className={styles["row-actions-group"]}>
                             {isAwaitingInspection ? (
                               <>
                                 <button
@@ -1465,42 +1731,14 @@ export default function HousekeepingDashboard({
                                   <X size={12} /> Fail
                                 </button>
                               </>
-                            ) : isArchived ? (
-                              <button
-                                type="button"
-                                onClick={() => handleRestoreTask(item)}
-                                className={styles["action-pill-btn"]}
-                                style={{
-                                  background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0",
-                                  fontWeight: 700, padding: "5px 12px", display: "inline-flex", alignItems: "center", gap: "5px",
-                                }}
-                                title="Restore record back to Completed section"
-                              >
-                                <RotateCw size={11} /> Restore
-                              </button>
                             ) : (
                               <>
                                 {/* Quick-Assign inline: collapsed button or expanded dropdown */}
                                 {quickAssignItemId !== item.id ? (
                                   <div style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
-                                    {/* Auto-assign for dirty rooms to previously assigned staff */}
-                                    {isDirty && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleAutoAssignDirty(item)}
-                                        disabled={quickAssigning}
-                                        style={{
-                                          fontSize: "12px", padding: "5px 11px", borderRadius: "6px",
-                                          border: "1px solid #1d4ed8", background: "#2563eb",
-                                          color: "#fff", fontWeight: 700, cursor: "pointer",
-                                          display: "inline-flex", alignItems: "center", gap: "5px",
-                                        }}
-                                        title="Auto-assign to previously assigned staff"
-                                      >
-                                        <UserCheck size={12} /> Auto Assign
-                                      </button>
-                                    )}
-                                    {/* Manual assign — opens inline staff dropdown */}
+                                    {/* Assigning a room is always an explicit HOD choice — a room that
+                                        goes dirty is auto-assigned to its previous attendant by the
+                                        backend when the turnover task is created. */}
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -1515,17 +1753,6 @@ export default function HousekeepingDashboard({
                                     >
                                       <Users size={11} /> Assign
                                     </button>
-                                    {/* Report Issue — only for non-inspected rooms */}
-                                    {!isInspected && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenReportModal(item)}
-                                        className={`${styles["action-pill-btn"]} ${styles["issue"]}`}
-                                        title="Report room maintenance issue"
-                                      >
-                                        <Wrench size={11} /> Issue
-                                      </button>
-                                    )}
                                   </div>
                                 ) : (
                                   /* Inline staff picker */
@@ -1605,127 +1832,68 @@ export default function HousekeepingDashboard({
           2-Column Auxiliary Widgets Matching Front Desk Visual System
           ------------------------------------------------------------- */}
 
-      {/* ROW 1: Attendant Workload + Recent Operations Log */}
+      {/* ROW 1: Cleaning Timing Log + Housekeeping Operations Audit Log */}
       <div className={styles["two-col-grid"]}>
-        {/* Left Column: Housekeeping Attendant Roster */}
+        {/* Left Column: Cleaning Timing Log (today's lifecycle stages, newest first) */}
         <div className={styles["operations-card"]}>
           <div className={styles["card-header-between"]}>
             <div>
               <h3 className={styles["card-title-main"]} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <Users size={16} color="#2563eb" />
-                Housekeeping Staff & Attendant Workload
+                <History size={16} color="#7c3aed" />
+                Cleaning Timing Log
               </h3>
               <span style={{ fontSize: "11px", color: "#64748b" }}>
-                Live duty status and room cleaning distribution across attendants
+                Today's lifecycle: assigned, cleaning started, completed, HOD verdict — with times
               </span>
             </div>
-            <span className={styles["card-badge-muted"]}>
-              {attendantWorkload.length} Staff Active
-            </span>
+            <span className={styles["card-badge-muted"]}>{timingLogRows.length} events today</span>
           </div>
 
-          {/* Quick Staff KPI Summary Strip */}
-          <div className={styles["staff-kpi-strip"]}>
-            <div className={styles["staff-kpi-item"]}>
-              <span className={styles["staff-kpi-label"]}>Active Roster</span>
-              <span className={styles["staff-kpi-val"]}>{staffSummary.totalStaff} Attendants</span>
-            </div>
-            <div className={styles["staff-kpi-item"]}>
-              <span className={styles["staff-kpi-label"]}>Assigned Tasks</span>
-              <span className={styles["staff-kpi-val"]}>{staffSummary.totalAssigned} Rooms</span>
-            </div>
-            <div className={styles["staff-kpi-item"]}>
-              <span className={styles["staff-kpi-label"]}>Overall Turnover</span>
-              <span
-                className={styles["staff-kpi-val"]}
-                style={{ color: staffSummary.readyRate === 100 ? "#10b981" : "#2563eb" }}
-              >
-                {staffSummary.readyRate}% Ready
-              </span>
-            </div>
-          </div>
-
-          <div className={styles["attendant-cards-grid"]}>
-            {displayedStaff.map((staff) => (
-              <div key={staff.id} className={styles["attendant-card"]}>
-                <div className={styles["attendant-header"]}>
-                  <div className={styles["attendant-profile"]}>
-                    <div className={styles["attendant-avatar"]}>{staff.initials}</div>
-                    <div>
-                      <div className={styles["attendant-name"]}>{staff.name}</div>
-                      <div className={styles["attendant-shift"]}>{staff.shift}</div>
+          <div className={styles["timing-log-list"]}>
+            {pagedTimingLog.length === 0 ? (
+              <div className={styles["timing-log-empty"]}>No cleaning activity recorded today.</div>
+            ) : (
+              pagedTimingLog.map((log, idx) => (
+                <div key={`${log.boardTaskId}-${log.stage}-${idx}`} className={styles["timing-log-row"]}>
+                  <span className={styles["timing-log-stage"]} style={{ background: log.badgeColor }}>
+                    {log.stageLabel}
+                  </span>
+                  <div className={styles["timing-log-body"]}>
+                    <div className={styles["timing-log-line1"]}>
+                      <strong>Room {log.roomNumber}</strong>
+                      <span className={styles["log-task-id"]}>{log.boardTaskId}</span>
+                      <span
+                        className={`${styles["cleaning-type-tag"]} ${styles[log.taskTypeBadgeClass] || styles["cleaning-type-checkout"]}`}
+                      >
+                        {log.taskTypeLabel}
+                      </span>
+                      <span className={styles["timing-log-when"]}>
+                        <Clock size={11} /> {formatTrailDateTime(log.timestamp)}
+                      </span>
+                    </div>
+                    <div className={styles["timing-log-line2"]}>
+                      <strong>{log.actor}</strong> • {log.role}
                     </div>
                   </div>
-                  <span className={styles["attendant-status-tag"]}>On Duty</span>
                 </div>
-
-                <div className={styles["attendant-stats-box"]}>
-                  <div className={styles["attendant-stat-item"]}>
-                    <span className={styles["attendant-stat-val"]}>{staff.totalAssigned}</span>
-                    <span className={styles["attendant-stat-lbl"]}>Assigned</span>
-                  </div>
-                  <div className={styles["attendant-stat-item"]}>
-                    <span className={styles["attendant-stat-val"]} style={{ color: "#10b981" }}>
-                      {staff.completedRooms}
-                    </span>
-                    <span className={styles["attendant-stat-lbl"]}>Cleaned</span>
-                  </div>
-                  <div className={styles["attendant-stat-item"]}>
-                    <span
-                      className={styles["attendant-stat-val"]}
-                      style={{ color: staff.pendingRooms > 0 ? "#f59e0b" : "#64748b" }}
-                    >
-                      {staff.pendingRooms}
-                    </span>
-                    <span className={styles["attendant-stat-lbl"]}>Pending</span>
-                  </div>
-                </div>
-
-                <div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      color: "#64748b",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    <span>Turnover Progress</span>
-                    <span>{staff.progressPct}%</span>
-                  </div>
-                  <div className={styles["progress-track"]}>
-                    <div
-                      className={styles["progress-fill"]}
-                      style={{
-                        width: `${staff.progressPct}%`,
-                        background: staff.progressPct === 100 ? "#10b981" : "#2563eb",
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
-          {attendantWorkload.length > 10 && (
+          {timingLogRows.length > 0 && (
             <div className={styles["card-footer-action"]}>
-              <button
-                type="button"
-                onClick={() => setShowAllStaff((prev) => !prev)}
-                className={styles["toggle-view-all-btn"]}
-              >
-                {showAllStaff ? (
-                  <>
-                    <ChevronUp size={14} /> Show Top 10 Attendants
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown size={14} /> View All Attendants ({attendantWorkload.length})
-                  </>
-                )}
-              </button>
+              <Pagination
+                currentPage={logPage}
+                totalItems={timingLogRows.length}
+                pageSize={logPageSize}
+                onPageChange={(page) => setLogPage(page)}
+                onPageSizeChange={(newSize) => {
+                  setLogPageSize(Number(newSize));
+                  setLogPage(1);
+                }}
+                pageSizeOptions={[20, 50, 100]}
+                itemLabel="entries"
+              />
             </div>
           )}
         </div>
@@ -1997,6 +2165,130 @@ export default function HousekeepingDashboard({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ROW 3: Housekeeping Staff & Attendant Workload */}
+      <div className={styles["two-col-grid"]}>
+        {/* Left Column: Housekeeping Attendant Roster */}
+        <div className={styles["operations-card"]}>
+          <div className={styles["card-header-between"]}>
+            <div>
+              <h3 className={styles["card-title-main"]} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Users size={16} color="#2563eb" />
+                Housekeeping Staff & Attendant Workload
+              </h3>
+              <span style={{ fontSize: "11px", color: "#64748b" }}>
+                Live duty status and room cleaning distribution across attendants
+              </span>
+            </div>
+            <span className={styles["card-badge-muted"]}>{attendantWorkload.length} Staff Active</span>
+          </div>
+
+          {/* Quick Staff KPI Summary Strip */}
+          <div className={styles["staff-kpi-strip"]}>
+            <div className={styles["staff-kpi-item"]}>
+              <span className={styles["staff-kpi-label"]}>Active Roster</span>
+              <span className={styles["staff-kpi-val"]}>{staffSummary.totalStaff} Attendants</span>
+            </div>
+            <div className={styles["staff-kpi-item"]}>
+              <span className={styles["staff-kpi-label"]}>Assigned Tasks</span>
+              <span className={styles["staff-kpi-val"]}>{staffSummary.totalAssigned} Rooms</span>
+            </div>
+            <div className={styles["staff-kpi-item"]}>
+              <span className={styles["staff-kpi-label"]}>Overall Turnover</span>
+              <span
+                className={styles["staff-kpi-val"]}
+                style={{ color: staffSummary.readyRate === 100 ? "#10b981" : "#2563eb" }}
+              >
+                {staffSummary.readyRate}% Ready
+              </span>
+            </div>
+          </div>
+
+          <div className={styles["attendant-cards-grid"]}>
+            {displayedStaff.map((staff) => (
+              <div key={staff.id} className={styles["attendant-card"]}>
+                <div className={styles["attendant-header"]}>
+                  <div className={styles["attendant-profile"]}>
+                    <div className={styles["attendant-avatar"]}>{staff.initials}</div>
+                    <div>
+                      <div className={styles["attendant-name"]}>{staff.name}</div>
+                      <div className={styles["attendant-shift"]}>{staff.shift}</div>
+                    </div>
+                  </div>
+                  <span className={styles["attendant-status-tag"]}>On Duty</span>
+                </div>
+
+                <div className={styles["attendant-stats-box"]}>
+                  <div className={styles["attendant-stat-item"]}>
+                    <span className={styles["attendant-stat-val"]}>{staff.totalAssigned}</span>
+                    <span className={styles["attendant-stat-lbl"]}>Assigned</span>
+                  </div>
+                  <div className={styles["attendant-stat-item"]}>
+                    <span className={styles["attendant-stat-val"]} style={{ color: "#10b981" }}>
+                      {staff.completedRooms}
+                    </span>
+                    <span className={styles["attendant-stat-lbl"]}>Cleaned</span>
+                  </div>
+                  <div className={styles["attendant-stat-item"]}>
+                    <span
+                      className={styles["attendant-stat-val"]}
+                      style={{ color: staff.pendingRooms > 0 ? "#f59e0b" : "#64748b" }}
+                    >
+                      {staff.pendingRooms}
+                    </span>
+                    <span className={styles["attendant-stat-lbl"]}>Pending</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: "#64748b",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    <span>Turnover Progress</span>
+                    <span>{staff.progressPct}%</span>
+                  </div>
+                  <div className={styles["progress-track"]}>
+                    <div
+                      className={styles["progress-fill"]}
+                      style={{
+                        width: `${staff.progressPct}%`,
+                        background: staff.progressPct === 100 ? "#10b981" : "#2563eb",
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {attendantWorkload.length > 10 && (
+            <div className={styles["card-footer-action"]}>
+              <button
+                type="button"
+                onClick={() => setShowAllStaff((prev) => !prev)}
+                className={styles["toggle-view-all-btn"]}
+              >
+                {showAllStaff ? (
+                  <>
+                    <ChevronUp size={14} /> Show Top 10 Attendants
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={14} /> View All Attendants ({attendantWorkload.length})
+                  </>
+                )}
+              </button>
             </div>
           )}
         </div>
@@ -2309,7 +2601,207 @@ export default function HousekeepingDashboard({
       )}
 
       {/* -------------------------------------------------------------
-          MODAL 4: CONFIRM INSPECTION FAILURE (Move to Dirty / Departed)
+          MODAL 4: ROOM CLEANING LIFECYCLE / TIMING LOG
+          Dirty -> Cleaning Started -> Completed & Submitted -> HOD verdict, with times
+          ------------------------------------------------------------- */}
+      {trailTask && (
+        <div className={styles["modal-overlay"]} onClick={() => setTrailTask(null)}>
+          <div
+            className={styles["modal-content-card"]}
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "620px", maxHeight: "88vh", display: "flex", flexDirection: "column" }}
+          >
+            <div className={styles["modal-header"]}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb" }}>
+                  <History size={18} />
+                </div>
+                <div>
+                  <h3 className={styles["modal-title"]} style={{ fontSize: "16px" }}>
+                    Room {trailTask.roomNumber} • Cleaning Timing Log
+                  </h3>
+                  <span style={{ fontSize: "11px", color: "#64748b" }}>
+                    {trailTask.taskId} • current cycle, every stage with its timestamp
+                  </span>
+                </div>
+              </div>
+              <button type="button" onClick={() => setTrailTask(null)} className={styles["modal-close-btn"]}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className={styles["modal-body"]} style={{ padding: "18px 22px", overflowY: "auto", flex: 1 }}>
+              <div
+                style={{
+                  display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "10px",
+                  background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px",
+                  padding: "10px 14px", marginBottom: "18px",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Attendant</div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>
+                    {trailTask.assignedAttendant || "Unassigned"}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Cleaning Type</div>
+                  <div style={{ marginTop: "2px" }}>
+                    <span
+                      className={`${styles["cleaning-type-tag"]} ${styles[trailTask.taskTypeBadgeClass] || styles["cleaning-type-checkout"]}`}
+                    >
+                      {trailTask.taskTypeLabel}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Current State</div>
+                  <div>
+                    <span className={`${styles["status-pill"]} ${
+                      trailTask.status === "dirty-departed" ? styles["dirty"]
+                        : trailTask.status === "awaiting-inspection" ? styles["inspection"]
+                        : trailTask.status === "clean-inspected" ? styles["inspected"]
+                        : styles["cleaning"]
+                    }`}>
+                      {trailTask.statusLabel}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Initiation</div>
+                  <div style={{ fontSize: "12px", fontWeight: 600, color: "#475569", marginTop: "2px" }}>
+                    {trailTask.taskTypeSubtext || "Turnover cycle"}
+                  </div>
+                </div>
+              </div>
+
+              {trailTask.rawTask && Array.isArray(trailTask.rawTask.checklist) && trailTask.rawTask.checklist.length > 0 && (
+                <div
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "8px",
+                    padding: "12px 14px",
+                    marginBottom: "18px",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <ClipboardCheck size={16} color="#059669" />
+                      <span style={{ fontSize: "12.5px", fontWeight: 700, color: "#0f172a" }}>
+                        Attendant Checklist Verification (HOD Template)
+                      </span>
+                    </div>
+                    <span style={{
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: "#059669",
+                      background: "#ecfdf5",
+                      padding: "2px 8px",
+                      borderRadius: "10px",
+                    }}>
+                      {trailTask.rawTask.checklist.filter((c) => c.checked).length} of {trailTask.rawTask.checklist.length} marked
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    {trailTask.rawTask.checklist.map((it, idx) => {
+                      const isChecked = Boolean(it.checked);
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            padding: "6px 8px",
+                            borderRadius: "6px",
+                            background: isChecked ? "#f0fdf4" : "#f8fafc",
+                            border: `1px solid ${isChecked ? "#bbf7d0" : "#f1f5f9"}`,
+                            fontSize: "12px",
+                            color: isChecked ? "#166534" : "#64748b",
+                          }}
+                        >
+                          <span style={{ fontWeight: 800, color: isChecked ? "#16a34a" : "#94a3b8", fontSize: "13px" }}>
+                            {isChecked ? "✓" : "○"}
+                          </span>
+                          <span style={{ fontWeight: isChecked ? 600 : 400 }}>
+                            {it.text}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {(() => {
+                const evs = trailTask.rawTask ? buildTaskLifecycleEvents(trailTask.rawTask) : [];
+                if (evs.length === 0) {
+                  return (
+                    <p style={{ color: "#64748b", fontSize: "13px", textAlign: "center", padding: "20px 0" }}>
+                      No lifecycle events recorded for this room yet.
+                    </p>
+                  );
+                }
+                return (
+                  <div style={{ position: "relative", paddingLeft: "24px" }}>
+                    <div style={{ position: "absolute", left: "9px", top: "12px", bottom: "16px", width: "2px", background: "#e2e8f0" }} />
+                    {evs.map((ev) => (
+                      <div key={ev.id} style={{ position: "relative", marginBottom: "14px" }}>
+                        <div
+                          style={{
+                            position: "absolute", left: "-24px", top: "4px", width: "18px", height: "18px",
+                            borderRadius: "50%", background: ev.badgeColor,
+                            border: "3px solid #ffffff", boxShadow: `0 0 0 2px ${ev.badgeColor}44`,
+                          }}
+                        />
+                        <div
+                          style={{
+                            background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px",
+                            padding: "10px 14px", boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", gap: "10px" }}>
+                            <span
+                              style={{
+                                fontSize: "10.5px", fontWeight: 800, padding: "2px 8px", borderRadius: "4px",
+                                background: `${ev.badgeColor}18`, color: ev.badgeColor, whiteSpace: "nowrap",
+                              }}
+                            >
+                              {ev.stageLabel}
+                            </span>
+                            <span style={{ fontSize: "11.5px", color: "#475569", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "4px", whiteSpace: "nowrap" }}>
+                              <Clock size={11} /> {formatTrailDateTime(ev.timestamp)}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: "12.5px", fontWeight: 700, color: "#0f172a" }}>{ev.title}</div>
+                          <div style={{ fontSize: "11.5px", color: "#64748b", marginTop: "2px" }}>
+                            <strong style={{ color: "#334155" }}>{ev.actor}</strong> • {ev.role}
+                          </div>
+                          {ev.details && (
+                            <div style={{ fontSize: "11.5px", color: "#475569", marginTop: "4px", lineHeight: 1.45 }}>
+                              {ev.details}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className={styles["modal-footer"]}>
+              <button type="button" className={styles["btn-secondary"]} onClick={() => setTrailTask(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* -------------------------------------------------------------
+          MODAL 5: CONFIRM INSPECTION FAILURE (Move to Dirty / Departed)
           (Custom Modal Replacing Native Browser window.prompt)
           ------------------------------------------------------------- */}
       {failConfirmItem && (

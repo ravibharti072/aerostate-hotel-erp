@@ -73,6 +73,7 @@ class RoomBase(BaseModel):
     base_price: float
     status: str = "available"
     description: Optional[str] = None
+    assigned_staff_id: Optional[int] = None
 
 
 class RoomCreate(RoomBase):
@@ -88,6 +89,7 @@ class RoomUpdate(BaseModel):
     base_price: Optional[float] = None
     status: Optional[str] = None
     description: Optional[str] = None
+    assigned_staff_id: Optional[int] = None
 
 
 class RoomResponse(RoomBase):
@@ -692,6 +694,7 @@ class HousekeepingTaskBase(BaseModel):
     due_date: Optional[datetime] = None
     notes: Optional[str] = None
     created_by: Optional[str] = None
+    checklist: Optional[Any] = None
 
 
 class HousekeepingTaskCreate(HousekeepingTaskBase):
@@ -732,6 +735,7 @@ class HousekeepingTaskResponse(HousekeepingTaskBase):
 class HousekeepingCompletePayload(BaseModel):
     notes: Optional[str] = None
     requires_inspection: bool = False
+    checklist: Optional[Any] = None
 
 
 class HousekeepingInspectionPayload(BaseModel):
@@ -746,6 +750,52 @@ class HousekeepingProblemReportPayload(BaseModel):
     description: str
     priority: str = "normal"
     blocks_room: bool = False
+
+
+# -------------------------------------------------------------
+# Checklist templates (HOD builds these, attendants tick them off)
+# -------------------------------------------------------------
+
+class ChecklistItemPayload(BaseModel):
+    text: str
+    required: bool = True
+
+
+class ChecklistCreatePayload(BaseModel):
+    name: str
+    department: str = "housekeeping"
+    description: Optional[str] = None
+    items: List[ChecklistItemPayload] = []
+    is_active: bool = True
+    hotel_id: Optional[int] = None
+
+
+class ChecklistUpdatePayload(BaseModel):
+    name: Optional[str] = None
+    department: Optional[str] = None
+    description: Optional[str] = None
+    items: Optional[List[ChecklistItemPayload]] = None
+    is_active: Optional[bool] = None
+
+
+class ChecklistItemResponse(BaseModel):
+    text: str
+    required: bool = True
+
+
+class ChecklistResponse(BaseModel):
+    id: int
+    hotel_id: int
+    name: str
+    department: str
+    description: Optional[str] = None
+    items: List[ChecklistItemResponse] = []
+    is_active: bool = True
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class HousekeepingDashboardArrivalItem(BaseModel):

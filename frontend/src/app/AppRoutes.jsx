@@ -47,6 +47,7 @@ import AssignedWork from "../modules/housekeeping/assignedWork/AssignedWork.jsx"
 import HousekeepingPage from "../modules/housekeeping/tasks/HousekeepingPage.jsx";
 import HousekeepingMaintenancePage from "../modules/housekeeping/maintenance/HousekeepingMaintenancePage.jsx";
 import CleaningInspectionPage from "../modules/housekeeping/inspection/CleaningInspectionPage.jsx";
+import ChecklistsPage from "../modules/checklists/ChecklistsPage.jsx";
 import HousekeepingStaffDashboard from "../modules/housekeeping/staff/HousekeepingStaffDashboard.jsx";
 import LaundryOrdersPage from "../modules/housekeeping/laundry/LaundryOrdersPage.jsx";
 import MinibarChargesPage from "../modules/housekeeping/minibar/MinibarChargesPage.jsx";
@@ -180,6 +181,11 @@ export default function AppRoutes() {
         <Route path="/housekeeping/reports" element={<Navigate to="/housekeeping/checkout-cleaning" replace />} />
         <Route path="/housekeeping/laundry" element={<LaundryOrdersPage />} />
         <Route path="/housekeeping/minibar" element={<MinibarChargesPage />} />
+
+        {/* CHECKLISTS (HOD builds them, staff tick them off) */}
+        <Route path="/checklists" element={<ChecklistsPage />} />
+        <Route path="/checklists/add" element={<ChecklistsPage />} />
+        <Route path="/housekeeping/checklists" element={<ChecklistsPage />} />
 
         {/* MAINTENANCE */}
         <Route path="/maintenance" element={<Navigate to="/maintenance/dashboard" replace />} />

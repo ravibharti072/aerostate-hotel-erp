@@ -2,8 +2,9 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app import schemas
+from app import models, schemas
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.services.payroll_service import PayrollService
 
 router = APIRouter(tags=["Payroll"])
@@ -13,14 +14,22 @@ def get_payroll_service(db: Session = Depends(get_db)) -> PayrollService:
     return PayrollService(db)
 
 
+# NOTE: every endpoint below requires an authenticated user. Role/tenant
+# enforcement (which roles may read vs. mutate, and which hotel's payroll is
+# visible) lives in PayrollService so it cannot be bypassed by calling the
+# service directly. Previously this whole router was unauthenticated, which
+# exposed every hotel's salary structures and payroll runs to anonymous callers.
+
+
 # ---------------------------------------------------------
 # 1. GET ALL SALARY STRUCTURES
 # ---------------------------------------------------------
 @router.get("/staff-salary-structures")
 def get_staff_salaries(
     service: PayrollService = Depends(get_payroll_service),
+    current_user: models.User = Depends(get_current_user),
 ) -> Dict[int, Dict[str, Any]]:
-    return service.get_staff_salaries()
+    return service.get_staff_salaries(current_user)
 
 
 # ---------------------------------------------------------
@@ -30,8 +39,9 @@ def get_staff_salaries(
 def save_staff_salary(
     payload: schemas.StaffSalaryStructureCreate,
     service: PayrollService = Depends(get_payroll_service),
+    current_user: models.User = Depends(get_current_user),
 ) -> Dict[str, str]:
-    return service.save_staff_salary(payload)
+    return service.save_staff_salary(payload, current_user)
 
 
 # ---------------------------------------------------------
@@ -41,8 +51,9 @@ def save_staff_salary(
 def get_payroll_records(
     month: str = Query(..., description="Format: YYYY-MM"),
     service: PayrollService = Depends(get_payroll_service),
+    current_user: models.User = Depends(get_current_user),
 ) -> List[Dict[str, Any]]:
-    return service.get_payroll_records(month)
+    return service.get_payroll_records(month, current_user)
 
 
 # ---------------------------------------------------------
@@ -52,8 +63,9 @@ def get_payroll_records(
 def process_payroll(
     payload: schemas.ProcessPayrollRequest,
     service: PayrollService = Depends(get_payroll_service),
+    current_user: models.User = Depends(get_current_user),
 ) -> Dict[str, str]:
-    return service.process_payroll(payload)
+    return service.process_payroll(payload, current_user)
 
 
 # ---------------------------------------------------------
@@ -64,8 +76,9 @@ def update_payroll_status(
     record_id: int,
     payload: schemas.PayrollStatusUpdate,
     service: PayrollService = Depends(get_payroll_service),
+    current_user: models.User = Depends(get_current_user),
 ) -> Dict[str, str]:
-    return service.update_payroll_status(record_id, payload)
+    return service.update_payroll_status(record_id, payload, current_user)
 
 
 # ---------------------------------------------------------
@@ -76,5 +89,6 @@ def add_payroll_adjustment(
     record_id: int,
     payload: schemas.AdjustmentRequest,
     service: PayrollService = Depends(get_payroll_service),
+    current_user: models.User = Depends(get_current_user),
 ) -> Dict[str, str]:
-    return service.add_payroll_adjustment(record_id, payload)
+    return service.add_payroll_adjustment(record_id, payload, current_user)

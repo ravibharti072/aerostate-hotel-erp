@@ -1,0 +1,27 @@
+/* Checklists Management & Directory Styles */
+.checklists-page {
+  width: 100%;
+}
+
+/* Fix 3 stat cards dimension so they expand evenly with no blank space */
+.checklists-page .dir-stats-grid,
+.checklists-stats-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 16px !important;
+  width: 100% !important;
+}
+
+@media (max-width: 900px) {
+  .checklists-page .dir-stats-grid,
+  .checklists-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .checklists-page .dir-stats-grid,
+  .checklists-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

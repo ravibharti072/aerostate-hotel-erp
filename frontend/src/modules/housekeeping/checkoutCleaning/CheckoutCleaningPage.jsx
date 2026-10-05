@@ -15,6 +15,7 @@ import {
   Trash2,
   Play,
   RotateCw,
+  ClipboardCheck,
 } from "lucide-react";
 
 import api from "@api/api";
@@ -43,6 +44,13 @@ export default function CheckoutCleaningPage({ showBack = true }) {
     notes: "",
   });
   const [creatingTask, setCreatingTask] = useState(false);
+
+  // Complete Cleaning Modal with HOD Checklist
+  const [completeModalTask, setCompleteModalTask] = useState(null);
+  const [completeChecklist, setCompleteChecklist] = useState([]);
+  const [completeNotes, setCompleteNotes] = useState("");
+  const [completing, setCompleting] = useState(false);
+  const [checklistTemplates, setChecklistTemplates] = useState([]);
 
   // Filters & Pagination
   const [searchText, setSearchText] = useState("");
@@ -88,10 +96,11 @@ export default function CheckoutCleaningPage({ showBack = true }) {
       const hotelId = getLoggedInHotelId();
       const params = hotelId ? { hotel_id: hotelId } : {};
 
-      const [tasksRes, roomsRes, staffRes] = await Promise.all([
+      const [tasksRes, roomsRes, staffRes, checklistsRes] = await Promise.all([
         api.get("/housekeeping/tasks", { params }).catch(() => ({ data: [] })),
         api.get("/rooms", { params }).catch(() => ({ data: [] })),
         api.get("/staff", { params }).catch(() => ({ data: [] })),
+        api.get("/checklists", { params: { ...params, department: "housekeeping" } }).catch(() => ({ data: [] })),
       ]);
 
       const allStaff = normalizeList(staffRes.data, "staff");
@@ -111,6 +120,8 @@ export default function CheckoutCleaningPage({ showBack = true }) {
       setTasks(normalizeList(tasksRes.data, "tasks"));
       setRooms(normalizeList(roomsRes.data, "rooms"));
       setCleaningStaff(hkStaff.length > 0 ? hkStaff : allStaff.filter((s) => s.status === "active"));
+      const cList = Array.isArray(checklistsRes?.data) ? checklistsRes.data : checklistsRes?.data?.data || [];
+      setChecklistTemplates(cList);
     } catch (err) {
       console.error("Fetch checkout cleaning error:", err);
       showToast(getApiErrorMessage(err, "Failed to load turnover tasks."), "error");
@@ -181,21 +192,75 @@ export default function CheckoutCleaningPage({ showBack = true }) {
     }
   };
 
-  // Mark Turnover Cleaning Complete & Room Available
-  const handleCompleteTask = async (task) => {
+  const resolveTaskChecklist = (task) => {
+    if (Array.isArray(task?.checklist) && task.checklist.length > 0) {
+      return task.checklist.map((it) => ({
+        text: typeof it === "string" ? it : it.text || "",
+        checked: Boolean(it.checked),
+        required: Boolean(it.required),
+      }));
+    }
+    const taskTypeLower = String(task?.task_type || "").toLowerCase();
+    let template = checklistTemplates.find((t) => {
+      const name = String(t.name || "").toLowerCase();
+      if (taskTypeLower.includes("checkout") && (name.includes("checkout") || name.includes("turnover"))) return true;
+      if (taskTypeLower.includes("stayover") && name.includes("stayover")) return true;
+      if (taskTypeLower.includes("deep") && name.includes("deep")) return true;
+      return false;
+    });
+    if (!template && checklistTemplates.length > 0) {
+      template = checklistTemplates[0];
+    }
+    if (template && Array.isArray(template.items)) {
+      return template.items.map((it) => ({
+        text: typeof it === "string" ? it : it.text || "",
+        checked: false,
+        required: false,
+      }));
+    }
+    return [];
+  };
+
+  const toggleCompleteChecklistItem = (idx) => {
+    setCompleteChecklist((prev) =>
+      prev.map((it, i) => (i === idx ? { ...it, checked: !it.checked } : it))
+    );
+  };
+
+  const setAllCompleteChecklist = (checkedVal) => {
+    setCompleteChecklist((prev) => prev.map((it) => ({ ...it, checked: checkedVal })));
+  };
+
+  const handleOpenCompleteModal = (task) => {
+    setCompleteModalTask(task);
+    setCompleteChecklist(resolveTaskChecklist(task));
+    setCompleteNotes("Turnover completed. Room inspected and ready for next guest.");
+  };
+
+  const handleConfirmComplete = async (e) => {
+    e.preventDefault();
+    if (!completeModalTask) return;
+    const roomNum = getRoom(completeModalTask.room_id)?.room_number || completeModalTask.room_id;
     try {
-      setUpdatingId(task.id);
-      await api.post(`/housekeeping/tasks/${task.id}/complete`, {
-        notes: "Turnover completed. Room inspected and ready for next guest.",
+      setCompleting(true);
+      await api.post(`/housekeeping/tasks/${completeModalTask.id}/complete`, {
+        notes: completeNotes.trim() || "Turnover completed by attendant.",
+        checklist: completeChecklist,
         requires_inspection: false,
       });
-      showToast(`Room ${getRoom(task.room_id)?.room_number || task.room_id} is clean and ready.`, "success");
+      showToast(`Room ${roomNum} is clean and ready.`, "success");
+      setCompleteModalTask(null);
       await fetchData();
     } catch (err) {
       showToast(getApiErrorMessage(err, "Failed to complete turnover."), "error");
     } finally {
-      setUpdatingId(null);
+      setCompleting(false);
     }
+  };
+
+  // Mark Turnover Cleaning Complete & Room Available (opens checklist modal)
+  const handleCompleteTask = (task) => {
+    handleOpenCompleteModal(task);
   };
 
   // Delete Task
@@ -852,6 +917,170 @@ export default function CheckoutCleaningPage({ showBack = true }) {
         </div>
       )}
 
+      {/* COMPLETE CLEANING MODAL WITH DYNAMIC HOD CHECKLIST */}
+      {completeModalTask && (
+        <div className="modal-overlay" onClick={() => setCompleteModalTask(null)}>
+          <div className="modal-content" style={{ maxWidth: "560px", maxHeight: "90vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <CheckCircle2 size={20} color="#16a34a" />
+                <div>
+                  <h2 style={{ fontSize: "16px", margin: 0 }}>
+                    Complete Turnover: Room {getRoom(completeModalTask.room_id)?.room_number || completeModalTask.room_id}
+                  </h2>
+                  <span style={{ fontSize: "11px", color: "#64748b" }}>
+                    Sign-off cleaning points and mark room ready
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setCompleteModalTask(null)}
+                disabled={completing}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmComplete} style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+              <div className="modal-body" style={{ overflowY: "auto", flex: 1, padding: "16px 20px" }}>
+                {/* DYNAMIC CHECKLIST CREATED BY HOD */}
+                <div style={{
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                  padding: "12px",
+                  marginBottom: "14px",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <ClipboardCheck size={16} color="#059669" />
+                      <span style={{ fontSize: "12.5px", fontWeight: 700, color: "#0f172a" }}>
+                        Cleaning Checklist
+                      </span>
+                      <span style={{
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        color: "#0284c7",
+                        background: "#e0f2fe",
+                        padding: "1px 6px",
+                        borderRadius: "4px",
+                        textTransform: "uppercase",
+                      }}>
+                        HOD Configured
+                      </span>
+                    </div>
+
+                    {completeChecklist.length > 0 && (
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#059669" }}>
+                          {completeChecklist.filter((c) => c.checked).length} of {completeChecklist.length} marked
+                        </span>
+                        <span style={{ color: "#cbd5e1" }}>•</span>
+                        <button
+                          type="button"
+                          onClick={() => setAllCompleteChecklist(true)}
+                          style={{ fontSize: "11px", color: "#2563eb", background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: 0 }}
+                        >
+                          Check All
+                        </button>
+                        <span style={{ color: "#cbd5e1" }}>•</span>
+                        <button
+                          type="button"
+                          onClick={() => setAllCompleteChecklist(false)}
+                          style={{ fontSize: "11px", color: "#64748b", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {completeChecklist.length === 0 ? (
+                    <div style={{ padding: "10px", background: "#ffffff", border: "1px dashed #cbd5e1", borderRadius: "6px", fontSize: "12px", color: "#64748b", textAlign: "center" }}>
+                      No checklist template configured yet by HOD. You can still mark the room as cleaned.
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxHeight: "200px", overflowY: "auto" }}>
+                      {completeChecklist.map((item, idx) => {
+                        const isChecked = Boolean(item.checked);
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => toggleCompleteChecklistItem(idx)}
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: "8px",
+                              padding: "7px 10px",
+                              borderRadius: "6px",
+                              background: isChecked ? "#ecfdf5" : "#ffffff",
+                              border: `1px solid ${isChecked ? "#a7f3d0" : "#e2e8f0"}`,
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}}
+                              style={{ marginTop: "2px", cursor: "pointer", width: "15px", height: "15px", accentColor: "#16a34a" }}
+                            />
+                            <span style={{
+                              fontSize: "12px",
+                              lineHeight: "1.4",
+                              color: isChecked ? "#065f46" : "#334155",
+                              fontWeight: isChecked ? 600 : 400,
+                            }}>
+                              {item.text}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: "6px", fontSize: "10.5px", color: "#64748b", fontStyle: "italic" }}>
+                    * Checkmarks are not strictly forced — verify items completed according to hotel standards.
+                  </div>
+                </div>
+
+                <div className="cleaning-form-group" style={{ marginBottom: 0 }}>
+                  <label className="cleaning-form-label">Completion Remarks / Notes</label>
+                  <textarea
+                    className="cleaning-form-textarea"
+                    rows={2}
+                    placeholder="Enter notes or observations..."
+                    value={completeNotes}
+                    onChange={(e) => setCompleteNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ background: "#f8fafc", borderTop: "1px solid #e2e8f0", padding: "12px 20px" }}>
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={() => setCompleteModalTask(null)}
+                  disabled={completing}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-submit"
+                  style={{ background: "#16a34a", padding: "8px 18px", gap: "6px" }}
+                  disabled={completing}
+                >
+                  <CheckCircle2 size={15} />
+                  {completing ? "Submitting..." : "Mark Cleaned & Ready"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

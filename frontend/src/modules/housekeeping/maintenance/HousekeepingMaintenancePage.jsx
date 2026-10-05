@@ -42,6 +42,15 @@ export default function HousekeepingMaintenancePage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
 
+  const isSupervisorOrAdmin =
+    user?.role === "super-admin" ||
+    user?.role === "hotel-admin" ||
+    user?.role_level === "department_head" ||
+    (user?.role === "housekeeping" && (user?.designation || "").toLowerCase().includes("manager"));
+
+  // Default to showing only issues reported by the current logged-in user
+  const [viewScope, setViewScope] = useState("my"); // "my" | "all"
+
   const showToast = (message, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -144,12 +153,37 @@ export default function HousekeepingMaintenancePage() {
     }
   };
 
+  const isReportedByMe = (m) => {
+    if (!user) return false;
+    const myId = user.id;
+    const myFullName = (user.full_name || "").toLowerCase().trim();
+    const myUsername = (user.username || "").toLowerCase().trim();
+    const reportedBy = String(m.reported_by || "").toLowerCase().trim();
+
+    if (myId && m.created_by_user_id && Number(m.created_by_user_id) === Number(myId)) return true;
+    if (myFullName && (reportedBy === myFullName || reportedBy.includes(myFullName) || myFullName.includes(reportedBy))) return true;
+    if (myUsername && (reportedBy === myUsername || reportedBy.includes(myUsername))) return true;
+    return false;
+  };
+
+  const myReportsCount = useMemo(() => {
+    return requests.filter(isReportedByMe).length;
+  }, [requests, user]);
+
+  // Show only requests reported by the current user (with scope toggle for supervisors/admins)
+  const displayedRequests = useMemo(() => {
+    if (viewScope === "all" && isSupervisorOrAdmin) {
+      return requests;
+    }
+    return requests.filter(isReportedByMe);
+  }, [requests, viewScope, isSupervisorOrAdmin, user]);
+
   const stats = useMemo(() => {
     let openCount = 0;
     let inProgressCount = 0;
     let resolvedCount = 0;
 
-    requests.forEach((r) => {
+    displayedRequests.forEach((r) => {
       const st = String(r.status || "").toLowerCase();
       if (st === "open" || st === "pending") openCount++;
       else if (st === "in-progress" || st === "in_progress") inProgressCount++;
@@ -157,17 +191,17 @@ export default function HousekeepingMaintenancePage() {
     });
 
     return {
-      total: requests.length,
+      total: displayedRequests.length,
       open: openCount,
       inProgress: inProgressCount,
       resolved: resolvedCount,
     };
-  }, [requests]);
+  }, [displayedRequests]);
 
   const filteredRequests = useMemo(() => {
     const search = searchText.toLowerCase().trim();
 
-    return requests.filter((r) => {
+    return displayedRequests.filter((r) => {
       const room = getRoom(r.room_id);
       const roomNum = String(room?.room_number || r.room_id || "").toLowerCase();
       const title = String(r.issue_title || "").toLowerCase();
@@ -194,7 +228,7 @@ export default function HousekeepingMaintenancePage() {
 
       return true;
     });
-  }, [requests, rooms, searchText, statusFilter, priorityFilter]);
+  }, [displayedRequests, rooms, searchText, statusFilter, priorityFilter]);
 
   const clearFilters = () => {
     setSearchText("");
@@ -297,6 +331,27 @@ export default function HousekeepingMaintenancePage() {
           >
             Resolved <span className="tab-count-badge">{stats.resolved}</span>
           </button>
+
+          {isSupervisorOrAdmin && (
+            <div style={{ display: "inline-flex", gap: "4px", marginLeft: "auto", background: "#f1f5f9", padding: "3px", borderRadius: "8px" }}>
+              <button
+                type="button"
+                className={`booking-tab-btn ${viewScope === "my" ? "active" : ""}`}
+                style={{ padding: "4px 10px", fontSize: "11.5px", borderRadius: "6px" }}
+                onClick={() => setViewScope("my")}
+              >
+                My Reported ({myReportsCount})
+              </button>
+              <button
+                type="button"
+                className={`booking-tab-btn ${viewScope === "all" ? "active" : ""}`}
+                style={{ padding: "4px 10px", fontSize: "11.5px", borderRadius: "6px" }}
+                onClick={() => setViewScope("all")}
+              >
+                All Department ({requests.length})
+              </button>
+            </div>
+          )}
         </div>
 
         {/* CONTROLS */}
@@ -359,7 +414,9 @@ export default function HousekeepingMaintenancePage() {
               ) : filteredRequests.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="empty-state">
-                    No maintenance issues reported for this view.
+                    {viewScope === "my"
+                      ? "No maintenance issues reported by you yet. Click '+ Report Issue' to report a problem."
+                      : "No maintenance issues reported for this view."}
                   </td>
                 </tr>
               ) : (

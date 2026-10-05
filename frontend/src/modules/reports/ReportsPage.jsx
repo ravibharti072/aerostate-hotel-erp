@@ -36,6 +36,7 @@ import {
   PortalHeader,
   StatCard,
   ModuleWriternHeader,
+  Pagination,
 } from "@components";
 import {
   extractTaskAuditEvents,
@@ -76,6 +77,7 @@ export const REPORT_TABS = [
   // Housekeeping
   { key: "housekeepingTasks", label: "Cleaning Tasks", category: "housekeeping" },
   { key: "housekeepingLogs", label: "Housekeeping Logs", category: "housekeeping" },
+  { key: "reportedIssues", label: "Reported Issues History", category: "housekeeping" },
 
   // Staff
   { key: "staffDirectory", label: "Staff Directory", category: "staff" },
@@ -128,6 +130,11 @@ export default function ReportsPage() {
   const [housekeepingTasks, setHousekeepingTasks] = useState([]);
   const [staffList, setStaffList] = useState([]);
   const [procurementOrders, setProcurementOrders] = useState([]);
+  const [maintenanceRequests, setMaintenanceRequests] = useState([]);
+
+  // Pagination states (20 per page by default, selectable 20, 50, 100)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   
   // Super Admin Multi-Property Support
   const [hotels, setHotels] = useState([]);
@@ -312,6 +319,7 @@ export default function ReportsPage() {
         api.get("/housekeeping/tasks").catch(() => ({ data: [] })),
         api.get("/staff").catch(() => ({ data: [] })),
         api.get("/procurement/purchase-orders").catch(() => ({ data: [] })),
+        api.get("/maintenance-requests/").catch(() => ({ data: [] })),
       ];
 
       if (user?.role === "super-admin") {
@@ -334,6 +342,7 @@ export default function ReportsPage() {
         hkRes,
         staffRes,
         procurementRes,
+        maintRes,
         hotelsRes,
       ] = results;
 
@@ -351,6 +360,7 @@ export default function ReportsPage() {
       setHousekeepingTasks(filterByHotel(normalizeList(hkRes.data, "tasks"), effectiveHotelId));
       setStaffList(filterByHotel(normalizeList(staffRes.data, "staff"), effectiveHotelId));
       setProcurementOrders(filterByHotel(normalizeList(procurementRes.data, "orders"), effectiveHotelId));
+      setMaintenanceRequests(filterByHotel(normalizeList(maintRes?.data, "requests"), effectiveHotelId));
 
       if (hotelsRes && Array.isArray(hotelsRes.data)) {
         setHotels(hotelsRes.data);
@@ -768,6 +778,59 @@ export default function ReportsPage() {
       }));
     }
 
+    if (activeTab === "reportedIssues") {
+      // Staff see only the issues they reported themselves; admins and HODs see the whole hotel log.
+      const myUserId = user?.id ?? user?.user_id;
+      const myNames = [user?.full_name, user?.username]
+        .filter(Boolean)
+        .map((n) => String(n).toLowerCase().trim());
+
+      const visibleIssues =
+        isAdmin || isHOD
+          ? maintenanceRequests
+          : maintenanceRequests.filter((req) => {
+              if (myUserId != null && req.created_by_user_id != null) {
+                return Number(req.created_by_user_id) === Number(myUserId);
+              }
+              // Older requests have no creator id — fall back to matching the reporter name
+              const reportedBy = String(req.reported_by || "").toLowerCase().trim();
+              return !!reportedBy && myNames.includes(reportedBy);
+            });
+
+      const list = [...visibleIssues].sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA;
+      });
+
+      return list.map((req) => {
+        const matchedRoom = rooms.find((r) => Number(r.id) === Number(req.room_id));
+        const roomNum = matchedRoom?.room_number || req.room_number || req.room_id || "-";
+        const dateStr = req.created_at ? new Date(req.created_at).toLocaleDateString() : "-";
+        const pr = String(req.priority || "normal").toUpperCase();
+        const st = String(req.status || "open").toUpperCase();
+
+        return {
+          id: req.id,
+          date: req.created_at || "-",
+          title: req.issue_title || `Issue #${req.id}`,
+          subtitle: `Room ${roomNum} • ${req.category || "General"}`,
+          badge: st,
+          priority: pr,
+          details: [
+            { label: "Ref", value: `#${req.id}` },
+            { label: "Room", value: `Room ${roomNum}` },
+            { label: "Category", value: req.category || "General" },
+            { label: "Priority", value: pr },
+            { label: "Reported By", value: req.reported_by || "Staff" },
+            { label: "Reported Date", value: dateStr },
+            { label: "Description", value: req.issue_description || "-" },
+          ],
+          amount: req.actual_cost ? Number(req.actual_cost) : null,
+        };
+      });
+    }
+
     if (activeTab === "staffDirectory") {
       let list = staffList;
       if (!isAdmin && !isHOD) {
@@ -829,6 +892,10 @@ export default function ReportsPage() {
     housekeepingTasks,
     staffList,
     procurementOrders,
+    maintenanceRequests,
+    isAdmin,
+    isHOD,
+    user,
   ]);
 
   const filteredRows = useMemo(() => {
@@ -861,6 +928,20 @@ export default function ReportsPage() {
     });
   }, [reportRows, searchText, statusFilter, fromDate, toDate, activeTab]);
 
+  // Reset pagination to page 1 on tab, category, search, or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, activeCategory, searchText, statusFilter, fromDate, toDate, selectedHotelId, pageSize]);
+
+  // Paginated records (20 per page by default, selectable 20, 50, 100)
+  const paginatedRows = useMemo(() => {
+    const isAll = pageSize === "all" || Number(pageSize) >= 999999;
+    if (isAll) return filteredRows;
+    const size = Number(pageSize) || 20;
+    const start = (currentPage - 1) * size;
+    return filteredRows.slice(start, start + size);
+  }, [filteredRows, currentPage, pageSize]);
+
   function getColumns() {
     if (activeTab === "guests") return ["ID", "Name", "Phone", "Email", "Status"];
     if (activeTab === "bookings") return ["ID", "Guest", "Room", "Check-in", "Checkout", "Total", "Status"];
@@ -876,6 +957,7 @@ export default function ReportsPage() {
     if (activeTab === "restaurantOrders") return ["Order #", "Destination", "Type", "Guest", "Total", "Status"];
     if (activeTab === "housekeepingTasks") return ["Task #", "Room", "Task Type", "Assigned To", "Priority", "Status"];
     if (activeTab === "housekeepingLogs") return ["Log #", "Room", "Attendant", "Lifecycle Stage", "Event Timestamp", "HOD / Inspector", "Audit Details / Remarks"];
+    if (activeTab === "reportedIssues") return ["Ref #", "Room", "Issue Details", "Category", "Priority", "Status", "Reported By", "Reported Date"];
     if (activeTab === "staffDirectory") return ["Staff ID", "Full Name", "Department", "Designation", "Phone", "Status"];
     if (activeTab === "procurementOrders") return ["PO #", "Date", "Supplier / Vendor", "Items", "Total Amount", "Status"];
     return ["Title", "Value"];
@@ -1011,6 +1093,25 @@ export default function ReportsPage() {
         row.details?.find((d) => d.label === "Timestamp")?.value || "-",
         row.details?.find((d) => d.label === "Actor")?.value || "-",
         <span key="desc" style={{ fontSize: "12px", color: "#334155" }}>{row.details?.find((d) => d.label === "Details")?.value || "-"}</span>,
+      ];
+    }
+    if (activeTab === "reportedIssues") {
+      return [
+        `#${row.id}`,
+        row.details?.find((d) => d.label === "Room")?.value || "-",
+        <div key="issue">
+          <strong style={{ fontSize: "12.5px", color: "#0f172a", display: "block" }}>{row.title}</strong>
+          {row.details?.find((d) => d.label === "Description")?.value !== "-" && (
+            <span style={{ fontSize: "11px", color: "#64748b" }}>
+              {row.details?.find((d) => d.label === "Description")?.value}
+            </span>
+          )}
+        </div>,
+        <span key="cat" className="reports-category-chip">{row.details?.find((d) => d.label === "Category")?.value || "General"}</span>,
+        <span key="priority" className={`reports-status ${getStatusClass(row.priority)}`}>{row.priority}</span>,
+        <span key="status" className={`reports-status ${getStatusClass(row.badge)}`}>{row.badge}</span>,
+        row.details?.find((d) => d.label === "Reported By")?.value || "-",
+        row.details?.find((d) => d.label === "Reported Date")?.value || "-",
       ];
     }
     if (activeTab === "staffDirectory") {
@@ -1420,7 +1521,7 @@ export default function ReportsPage() {
                 </div>
               ) : (
                 <div className="reports-record-cards-grid">
-                  {filteredRows.map((row, index) => (
+                  {paginatedRows.map((row, index) => (
                     <div key={`${activeTab}-${row.id || index}`} className="report-record-card">
                       <div className="record-card-header">
                         <div className="record-header-left">
@@ -1471,7 +1572,7 @@ export default function ReportsPage() {
                 </thead>
 
                 <tbody>
-                  {filteredRows.map((row, index) => (
+                  {paginatedRows.map((row, index) => (
                     <tr key={`${activeTab}-${row.id || index}`}>
                       {getRowCells(row).map((cell, cellIndex) => (
                         <td key={cellIndex}>{cell}</td>
@@ -1480,6 +1581,24 @@ export default function ReportsPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* PAGINATION BAR */}
+          {filteredRows.length > 0 && !["dailyClosing", "finance"].includes(activeTab) && (
+            <div style={{ marginTop: "18px", paddingBottom: "10px" }}>
+              <Pagination
+                currentPage={currentPage}
+                totalItems={filteredRows.length}
+                pageSize={pageSize}
+                pageSizeOptions={[20, 50, 100]}
+                onPageChange={(p) => setCurrentPage(p)}
+                onPageSizeChange={(sz) => {
+                  setPageSize(sz);
+                  setCurrentPage(1);
+                }}
+                itemLabel="records"
+              />
             </div>
           )}
         </div>

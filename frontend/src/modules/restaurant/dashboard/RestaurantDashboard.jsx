@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Search,
   Plus,
+  PlusCircle,
   X,
   UserCheck,
   Calendar,
@@ -38,6 +39,8 @@ import {
 import api from "@api/api";
 import { useAuth } from "@context/AuthContext";
 import { PortalHeader, StatCard } from "@components";
+import PlaceRestaurantOrderModal from "../components/PlaceRestaurantOrderModal";
+import "../orders/restaurantOrders.css";
 import styles from "./restaurantDashboard.module.css";
 
 export default function RestaurantDashboard({
@@ -48,6 +51,14 @@ export default function RestaurantDashboard({
   const navigate = useNavigate();
   const { user } = useAuth();
   const isEmbeddedView = isEmbedded || viewMode === "embedded";
+
+  // Detect kitchen staff (chef / cook) — they cannot place orders
+  const isKitchenUser =
+    user?.role === "kitchen" ||
+    user?.role_level === "kitchen" ||
+    ["chef", "cook", "head chef", "sous chef", "kitchen staff"].some((kw) =>
+      (user?.designation || "").toLowerCase().includes(kw)
+    );
 
   const getLoggedInHotelId = () => {
     return user?.hotel_id || user?.hotel?.id || user?.hotelId || user?.hotel?.hotel_id;
@@ -82,22 +93,10 @@ export default function RestaurantDashboard({
   const [showAllSections, setShowAllSections] = useState(false);
 
   // Modals
-  const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
-  const [submittingOrder, setSubmittingOrder] = useState(false);
+  const [isPlaceOrderModalOpen, setIsPlaceOrderModalOpen] = useState(false);
   const [bookingsList, setBookingsList] = useState([]);
   const [guestsList, setGuestsList] = useState([]);
   const [inHouseGuestsList, setInHouseGuestsList] = useState([]);
-  const [orderForm, setOrderForm] = useState({
-    order_type: "dine-in",
-    guest_type: "outside",
-    table_number: "",
-    booking_id: "",
-    room_id: "",
-    guest_name: "",
-    menu_item_id: "",
-    quantity: 1,
-    special_instructions: "",
-  });
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -181,14 +180,6 @@ export default function RestaurantDashboard({
       setBookingsList(rawBookings);
       setGuestsList(rawGuests);
       setInHouseGuestsList(rawInHouse);
-
-      if (rawTables.length > 0 && !orderForm.table_number) {
-        setOrderForm((prev) => ({
-          ...prev,
-          table_number: rawTables[0].table_number,
-          menu_item_id: rawMenu[0]?.id ? String(rawMenu[0].id) : "",
-        }));
-      }
     } catch (err) {
       console.error("Restaurant dashboard data load error:", err);
       setError(getApiErrorMessage(err, "Failed to load restaurant operations data."));
@@ -199,6 +190,40 @@ export default function RestaurantDashboard({
 
   useEffect(() => {
     loadBackendData();
+    // Auto-poll every 15 seconds — no manual refresh needed
+    const interval = setInterval(() => {
+      // Silent refresh: don't show loading spinner on each poll
+      (async () => {
+        try {
+          const hotelId = getLoggedInHotelId();
+          const params = hotelId ? { hotel_id: hotelId } : {};
+          const [statsRes, ordersRes, tablesRes] = await Promise.allSettled([
+            api.get("/restaurant/stats", { params }).catch(() => ({ data: {} })),
+            api.get("/restaurant/orders", { params }).catch(() => ({ data: [] })),
+            api.get("/restaurant/tables", { params }).catch(() => ({ data: [] })),
+          ]);
+          const rawStats = statsRes.value?.data || {};
+          const rawOrders = filterByHotel(normalizeList(ordersRes.value?.data, "orders"));
+          const rawTables = filterByHotel(normalizeList(tablesRes.value?.data, "tables"));
+          setOrders(rawOrders);
+          setTables(rawTables);
+          setStats((prev) => ({
+            ...prev,
+            todayOrders: rawStats.today_orders ?? rawOrders.length,
+            activeTables:
+              rawStats.active_tables ??
+              rawTables.filter((t) => t.status === "occupied").length,
+            pendingKitchen:
+              rawStats.pending_kitchen ??
+              rawOrders.filter((o) => ["pending", "preparing"].includes(o.order_status)).length,
+            todayRevenue: rawStats.today_revenue ?? prev.todayRevenue,
+          }));
+        } catch {
+          // Silent — don't surface polling errors in UI
+        }
+      })();
+    }, 15000);
+    return () => clearInterval(interval);
   }, [user]);
 
   // Tab counts
@@ -262,24 +287,6 @@ export default function RestaurantDashboard({
   const displayedOrders = useMemo(() => {
     return showAllOrders ? filteredOrders : filteredOrders.slice(0, 5);
   }, [filteredOrders, showAllOrders]);
-
-  const activeBookings = useMemo(() => {
-    if (inHouseGuestsList.length > 0) return inHouseGuestsList;
-    return bookingsList.filter((b) => {
-      const s = String(b.status || "").toLowerCase();
-      return s === "checked-in" || s === "checked_in";
-    });
-  }, [inHouseGuestsList, bookingsList]);
-
-  const getInHouseGuestName = (guestId) => {
-    const g = guestsList.find((x) => Number(x.id) === Number(guestId));
-    return g?.full_name || g?.name || "In-House Guest";
-  };
-
-  const getInHouseRoomNumber = (roomId) => {
-    const r = roomsList.find((x) => Number(x.id) === Number(roomId));
-    return r?.room_number || String(roomId || "-");
-  };
 
   // -------------------------------------------------------------
   // Restaurant Service Staff & Server Workload
@@ -492,83 +499,6 @@ export default function RestaurantDashboard({
     }
   };
 
-  const handleOpenNewOrderModal = () => {
-    setOrderForm({
-      order_type: "dine-in",
-      guest_type: "outside",
-      table_number: tables[0]?.table_number || "T-01",
-      booking_id: "",
-      room_id: "",
-      guest_name: "",
-      menu_item_id: menuItems[0]?.id ? String(menuItems[0].id) : "",
-      quantity: 1,
-      special_instructions: "",
-    });
-    setIsNewOrderModalOpen(true);
-  };
-
-  const handleSaveNewOrder = async (e) => {
-    e.preventDefault();
-    try {
-      setSubmittingOrder(true);
-      const hotelId = getLoggedInHotelId();
-      const selectedItem = menuItems.find((m) => String(m.id) === String(orderForm.menu_item_id));
-      const isRoomService = orderForm.order_type === "room-service";
-      const isInHouse = isRoomService || orderForm.guest_type === "in_house";
-
-      const selectedBooking = isInHouse && orderForm.booking_id
-        ? activeBookings.find((b) => Number(b.booking_id || b.id) === Number(orderForm.booking_id))
-        : null;
-
-      if (isInHouse && !orderForm.booking_id && !orderForm.room_id) {
-        setSubmittingOrder(false);
-        return showToast("Please select an in-house guest stay from the list.", "error");
-      }
-      if (!isInHouse && !orderForm.guest_name.trim()) {
-        setSubmittingOrder(false);
-        return showToast("Please enter the customer / guest name.", "error");
-      }
-
-      const resolvedGuestName = isInHouse
-        ? (selectedBooking?.guest_name || (selectedBooking ? getInHouseGuestName(selectedBooking.guest_id) : orderForm.guest_name.trim() || "In-House Guest"))
-        : (orderForm.guest_name.trim() || "Walk-in Guest");
-
-      const resolvedRoomId = isInHouse
-        ? (selectedBooking ? selectedBooking.room_id : orderForm.room_id ? Number(orderForm.room_id) : null)
-        : null;
-
-      const payload = {
-        hotel_id: hotelId,
-        order_type: orderForm.order_type,
-        table_number: orderForm.order_type === "dine-in" ? orderForm.table_number : null,
-        booking_id: selectedBooking ? Number(selectedBooking.booking_id || selectedBooking.id) : null,
-        guest_id: selectedBooking ? Number(selectedBooking.guest_id) : null,
-        room_id: resolvedRoomId,
-        guest_name: resolvedGuestName,
-        special_instructions: orderForm.special_instructions.trim(),
-        billing_type: isRoomService ? "transfer_to_booking" : "pending_billing",
-        payment_status: "unpaid",
-        items: [
-          {
-            menu_item_id: selectedItem?.id || (menuItems[0]?.id || 1),
-            quantity: Number(orderForm.quantity) || 1,
-            portion: "full",
-          },
-        ],
-      };
-
-      await api.post("/restaurant/orders", payload);
-      showToast("Restaurant order created and KOT generated.");
-      setIsNewOrderModalOpen(false);
-      await loadBackendData();
-    } catch (err) {
-      console.error("Create order error:", err);
-      showToast(getApiErrorMessage(err, "Failed to create order."), "error");
-    } finally {
-      setSubmittingOrder(false);
-    }
-  };
-
   return (
     <div
       className={`${styles["restaurant-dashboard-container"]} ${
@@ -595,43 +525,22 @@ export default function RestaurantDashboard({
         showBack={viewMode === "standalone" && showBack}
         backPath="/dashboard"
         rightAction={
-          <div className={styles["header-actions-group"]}>
-            <button
-              type="button"
-              onClick={() => navigate("/restaurant/kitchen")}
-              className={styles["secondary-header-btn"]}
-              title="Open kitchen display system"
-            >
-              <Soup size={15} />
-              Kitchen (KDS)
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/restaurant/tables")}
-              className={styles["secondary-header-btn"]}
-              title="Manage table floor plan"
-            >
-              <Table2 size={15} />
-              Table Layout
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/restaurant/billing")}
-              className={styles["secondary-header-btn"]}
-              title="Open POS billing & settlement"
-            >
-              <ReceiptText size={15} />
-              POS Billing
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenNewOrderModal}
-              className={styles["primary-header-btn"]}
-            >
-              <Plus size={16} />
-              New Order
-            </button>
-          </div>
+          isKitchenUser ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", fontWeight: 600, color: "#ea580c", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: "8px", padding: "6px 14px" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#ea580c", display: "inline-block", animation: "pulse 1.5s infinite" }} />
+              Live KDS Feed
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              <button
+                type="button"
+                className="portal-action-btn"
+                onClick={() => setIsPlaceOrderModalOpen(true)}
+              >
+                <Plus size={16} /> Place Order
+              </button>
+            </div>
+          )
         }
       />
 
@@ -1463,281 +1372,20 @@ export default function RestaurantDashboard({
         </div>
       </div>
 
-      {/* -------------------------------------------------------------
-          MODAL: NEW RESTAURANT / ROOM SERVICE ORDER
-          ------------------------------------------------------------- */}
-      {isNewOrderModalOpen && (
-        <div className={styles["modal-overlay"]} onClick={() => setIsNewOrderModalOpen(false)}>
-          <div className={styles["modal-content-card"]} onClick={(e) => e.stopPropagation()}>
-            <div className={styles["modal-header"]}>
-              <h3 className={styles["modal-title"]}>Create Restaurant / Room Service Order</h3>
-              <button
-                type="button"
-                onClick={() => setIsNewOrderModalOpen(false)}
-                className={styles["modal-close-btn"]}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveNewOrder}>
-              <div className={styles["modal-body"]}>
-                <div className={styles["form-row"]}>
-                  <div className={styles["form-field"]}>
-                    <label className={styles["form-label"]}>Dining / Service Type *</label>
-                    <select
-                      value={orderForm.order_type}
-                      onChange={(e) => {
-                        const newType = e.target.value;
-                        setOrderForm((prev) => ({
-                          ...prev,
-                          order_type: newType,
-                          guest_type: newType === "room-service" ? "in_house" : prev.guest_type,
-                        }));
-                      }}
-                      className={styles["form-select"]}
-                      required
-                    >
-                      <option value="dine-in">Dine-In Table</option>
-                      <option value="room-service">Room Service (In-Room)</option>
-                      <option value="takeaway">Takeaway / Counter</option>
-                    </select>
-                  </div>
-
-                  {orderForm.order_type === "dine-in" ? (
-                    <div className={styles["form-field"]}>
-                      <label className={styles["form-label"]}>Select Table *</label>
-                      <select
-                        value={orderForm.table_number}
-                        onChange={(e) => setOrderForm({ ...orderForm, table_number: e.target.value })}
-                        className={styles["form-select"]}
-                        required
-                      >
-                        {tables.map((t) => (
-                          <option key={t.id} value={t.table_number}>
-                            Table {t.table_number} ({t.section || "Main Hall"})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : null}
-                </div>
-
-                {/* Guest Type Toggle: In-House Guest vs Outside Guest */}
-                <div className={styles["form-field"]}>
-                  <label className={styles["form-label"]}>Guest Classification *</label>
-                  {orderForm.order_type === "room-service" ? (
-                    <div
-                      style={{
-                        padding: "8px 12px",
-                        background: "#f0fdf4",
-                        border: "1px solid #bbf7d0",
-                        borderRadius: "8px",
-                        fontSize: "12.5px",
-                        color: "#166534",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        fontWeight: 600,
-                      }}
-                    >
-                      <Hotel size={16} /> In-House Hotel Resident (Required for Room Service)
-                    </div>
-                  ) : (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                      <button
-                        type="button"
-                        style={{
-                          padding: "8px 12px",
-                          borderRadius: "8px",
-                          border: orderForm.guest_type === "in_house" ? "2px solid #e11d48" : "1px solid #cbd5e1",
-                          background: orderForm.guest_type === "in_house" ? "#fff1f2" : "#ffffff",
-                          color: orderForm.guest_type === "in_house" ? "#be123c" : "#475569",
-                          fontWeight: orderForm.guest_type === "in_house" ? 700 : 500,
-                          fontSize: "12.5px",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "6px",
-                          transition: "all 0.15s ease",
-                        }}
-                        onClick={() =>
-                          setOrderForm((prev) => ({
-                            ...prev,
-                            guest_type: "in_house",
-                          }))
-                        }
-                      >
-                        <Hotel size={15} /> In-House Guest
-                      </button>
-                      <button
-                        type="button"
-                        style={{
-                          padding: "8px 12px",
-                          borderRadius: "8px",
-                          border: orderForm.guest_type === "outside" ? "2px solid #e11d48" : "1px solid #cbd5e1",
-                          background: orderForm.guest_type === "outside" ? "#fff1f2" : "#ffffff",
-                          color: orderForm.guest_type === "outside" ? "#be123c" : "#475569",
-                          fontWeight: orderForm.guest_type === "outside" ? 700 : 500,
-                          fontSize: "12.5px",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "6px",
-                          transition: "all 0.15s ease",
-                        }}
-                        onClick={() =>
-                          setOrderForm((prev) => ({
-                            ...prev,
-                            guest_type: "outside",
-                            booking_id: "",
-                            room_id: "",
-                          }))
-                        }
-                      >
-                        <User size={15} /> Outside Guest
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Conditional Guest Selection or Name Entry */}
-                {orderForm.order_type === "room-service" || orderForm.guest_type === "in_house" ? (
-                  <div className={styles["form-field"]}>
-                    <label className={styles["form-label"]}>Select In-House Guest Stay *</label>
-                    <select
-                      value={orderForm.booking_id}
-                      onChange={(e) => {
-                        const selectedId = e.target.value;
-                        const b = activeBookings.find((x) => String(x.booking_id || x.id) === String(selectedId));
-                        setOrderForm((prev) => ({
-                          ...prev,
-                          booking_id: selectedId,
-                          room_id: b?.room_id ? String(b.room_id) : "",
-                          guest_name: b?.guest_name || (b ? getInHouseGuestName(b.guest_id) : ""),
-                        }));
-                      }}
-                      className={styles["form-select"]}
-                      required
-                    >
-                      <option value="">-- Choose Checked-in Stay / Room --</option>
-                      {activeBookings.length > 0 ? (
-                        activeBookings.map((b) => {
-                          const bId = b.booking_id || b.id;
-                          const bGuestName = b.guest_name || getInHouseGuestName(b.guest_id);
-                          const bRoomNumber = b.room_number || getInHouseRoomNumber(b.room_id);
-                          return (
-                            <option key={bId} value={bId}>
-                              Room {bRoomNumber} - {bGuestName} (Stay #{bId})
-                            </option>
-                          );
-                        })
-                      ) : (
-                        <option value="" disabled>No active checked-in stays found</option>
-                      )}
-                    </select>
-
-                    {orderForm.booking_id && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          padding: "8px 12px",
-                          background: "#f0fdf4",
-                          border: "1px solid #86efac",
-                          borderRadius: "6px",
-                          color: "#166534",
-                          fontSize: "12px",
-                          fontWeight: 600,
-                          marginTop: "4px",
-                        }}
-                      >
-                        <CheckCircle2 size={15} color="#16a34a" />
-                        <span>
-                          {orderForm.guest_name || "Guest"} • Room{" "}
-                          {getInHouseRoomNumber(orderForm.room_id)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className={styles["form-field"]}>
-                    <label className={styles["form-label"]}>Customer Name *</label>
-                    <input
-                      type="text"
-                      value={orderForm.guest_name}
-                      onChange={(e) => setOrderForm({ ...orderForm, guest_name: e.target.value })}
-                      className={styles["form-input"]}
-                      placeholder="e.g. Priya Sharma / Walk-in"
-                      required
-                    />
-                  </div>
-                )}
-
-                <div className={styles["form-row"]}>
-                  <div className={styles["form-field"]}>
-                    <label className={styles["form-label"]}>Select Menu Dish *</label>
-                    <select
-                      value={orderForm.menu_item_id}
-                      onChange={(e) => setOrderForm({ ...orderForm, menu_item_id: e.target.value })}
-                      className={styles["form-select"]}
-                      required
-                    >
-                      {menuItems.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name} ({m.category}) - ₹{m.price}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className={styles["form-field"]} style={{ maxWidth: "120px" }}>
-                    <label className={styles["form-label"]}>Quantity *</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={orderForm.quantity}
-                      onChange={(e) => setOrderForm({ ...orderForm, quantity: e.target.value })}
-                      className={styles["form-input"]}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className={styles["form-field"]}>
-                  <label className={styles["form-label"]}>Special Kitchen Instructions</label>
-                  <textarea
-                    rows={2}
-                    value={orderForm.special_instructions}
-                    onChange={(e) => setOrderForm({ ...orderForm, special_instructions: e.target.value })}
-                    className={styles["form-textarea"]}
-                    placeholder="Less spicy, extra napkins, cutlery required..."
-                  />
-                </div>
-              </div>
-
-              <div className={styles["modal-footer"]}>
-                <button
-                  type="button"
-                  onClick={() => setIsNewOrderModalOpen(false)}
-                  className={styles["btn-cancel"]}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingOrder}
-                  className={styles["btn-submit"]}
-                >
-                  {submittingOrder ? "Placing..." : "Generate KOT Order"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* 8. PLACE RESTAURANT ORDER MODAL — HOD & Admin only */}
+      {!isKitchenUser && (
+        <PlaceRestaurantOrderModal
+          isOpen={isPlaceOrderModalOpen}
+          onClose={() => setIsPlaceOrderModalOpen(false)}
+          onSuccess={loadBackendData}
+          onToast={showToast}
+          tables={tables}
+          menuItems={menuItems}
+          bookings={bookingsList}
+          guests={guestsList}
+          rooms={roomsList}
+          inHouseGuests={inHouseGuestsList}
+        />
       )}
     </div>
   );

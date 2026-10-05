@@ -33,7 +33,6 @@ import {
   BarChart3,
   Search,
   Plus,
-  RefreshCw,
   ExternalLink,
   Hotel
 } from "lucide-react";
@@ -405,14 +404,16 @@ export default function SettingsPage() {
               <span>Property & Operations</span>
             </button>
           )}
-          <button
-            type="button"
-            className={`settings-tab-btn ${activeTab === "security" ? "active" : ""}`}
-            onClick={() => setActiveTab("security")}
-          >
-            <ShieldCheck size={16} />
-            <span>{isAdmin ? "Login & Security" : "Portal Access & Security"}</span>
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className={`settings-tab-btn ${activeTab === "security" ? "active" : ""}`}
+              onClick={() => setActiveTab("security")}
+            >
+              <ShieldCheck size={16} />
+              <span>Login &amp; Security</span>
+            </button>
+          )}
           {isAdmin && (
             <button
               type="button"
@@ -430,7 +431,7 @@ export default function SettingsPage() {
               onClick={() => setActiveTab("permissions")}
             >
               <KeyRound size={16} />
-              <span>Portal Access</span>
+              <span>Staff Credentials</span>
             </button>
           )}
         </div>
@@ -643,35 +644,15 @@ export default function SettingsPage() {
                   <KeyRound size={20} className="header-icon blue" />
                   <div>
                     <h2>
-                      {isAdmin ? "Admin Account & Credentials" : "Employee Portal Access & Security Credentials"}
+                      {isAdmin ? "Admin Account & Credentials" : "Employee Profile & Security Credentials"}
                     </h2>
                     <p className="card-subtitle">
                       {isAdmin
                         ? "Manage your administrator profile and secure login credentials."
-                        : "Your authorized employee credentials, assigned operational portals, and login security."}
+                        : "Your authorized employee credentials, assigned department, and login security."}
                     </p>
                   </div>
                 </div>
-
-                {!isAdmin && (
-                  <button
-                    type="button"
-                    className="pa-btn-secondary"
-                    onClick={() => {
-                      setFormData({
-                        full_name: user?.full_name || "",
-                        username: user?.username || "",
-                        password: "",
-                        confirmPassword: "",
-                      });
-                      setMessage({ type: "success", text: "Profile details refreshed." });
-                      setTimeout(() => setMessage({ type: "", text: "" }), 3000);
-                    }}
-                    title="Refresh profile details"
-                  >
-                    <RefreshCw size={14} /> Refresh
-                  </button>
-                )}
               </div>
 
               <div className="card-body">
@@ -703,10 +684,14 @@ export default function SettingsPage() {
 
                   <div className="settings-pa-stat-card purple">
                     <div className="stat-content">
-                      <span className="stat-label">Operational Portals</span>
-                      <span className="stat-value">{userAllowedModules.length} Portals</span>
+                      <span className="stat-label">Assigned Department</span>
+                      <span className="stat-value">
+                        {user?.department
+                          ? user.department.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+                          : (user?.role === "housekeeping" ? "Housekeeping" : (user?.role === "hotel-admin" ? "Administration" : "Operations"))}
+                      </span>
                     </div>
-                    <Hotel size={22} className="stat-icon" />
+                    <Briefcase size={22} className="stat-icon" />
                   </div>
                 </div>
 
@@ -716,9 +701,8 @@ export default function SettingsPage() {
                     <thead>
                       <tr>
                         <th>Employee</th>
-                        <th>Department & Designation</th>
+                        <th>Department &amp; Designation</th>
                         <th>Login Username</th>
-                        <th>Assigned Portals / Modules</th>
                         <th>Role</th>
                         <th>Status</th>
                       </tr>
@@ -756,16 +740,6 @@ export default function SettingsPage() {
                           <span style={{ fontWeight: "700", color: "#0f172a" }}>
                             @{user?.username}
                           </span>
-                        </td>
-
-                        <td>
-                          <div className="pa-module-chips">
-                            {userAllowedModules.map((mKey) => (
-                              <span key={mKey} className={`pa-chip pa-chip-${mKey.replace(/\s+/g, "-")}`}>
-                                {mKey}
-                              </span>
-                            ))}
-                          </div>
                         </td>
 
                         <td>
@@ -996,20 +970,12 @@ export default function SettingsPage() {
                 <div className="card-header-left">
                   <KeyRound size={20} className="header-icon blue" />
                   <div>
-                    <h2>Employee Portal Access & Security Credentials</h2>
+                    <h2>Employee Access & Security Credentials</h2>
                     <p className="card-subtitle">Authorize employee accounts to access specific operational modules and manage login credentials.</p>
                   </div>
                 </div>
 
                 <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    className="btn-action-outline"
-                    onClick={fetchStaffStatus}
-                    title="Refresh Staff Roster"
-                  >
-                    <RefreshCw size={14} /> Refresh
-                  </button>
                   <button
                     type="button"
                     className="btn-submit"
@@ -1060,10 +1026,10 @@ export default function SettingsPage() {
 
                   <div className="settings-pa-stat-card purple">
                     <div className="stat-content">
-                      <span className="stat-label">Operational Portals</span>
-                      <span className="stat-value">{staffStats.totalModules}</span>
+                      <span className="stat-label">Operational Modules</span>
+                      <span className="stat-value">{staffStats.totalModules} Modules</span>
                     </div>
-                    <Hotel size={22} className="stat-icon" />
+                    <Building2 size={22} className="stat-icon" />
                   </div>
                 </div>
 
@@ -1112,9 +1078,8 @@ export default function SettingsPage() {
                     <thead>
                       <tr>
                         <th>Employee</th>
-                        <th>Department & Designation</th>
+                        <th>Department &amp; Designation</th>
                         <th>Login Username</th>
-                        <th>Assigned Portals / Modules</th>
                         <th>Role</th>
                         <th>Status</th>
                         <th style={{ textAlign: "right" }}>Actions</th>
@@ -1123,16 +1088,16 @@ export default function SettingsPage() {
                     <tbody>
                       {isLoadingStaff ? (
                         <tr>
-                          <td colSpan="7" style={{ textAlign: "center", padding: "36px", color: "#64748b" }}>
+                          <td colSpan="6" style={{ textAlign: "center", padding: "36px", color: "#64748b" }}>
                             <div className="settings-loading-state" style={{ justifyContent: "center" }}>
                               <div className="settings-spinner" />
-                              <span>Loading employee portal permissions...</span>
+                              <span>Loading employee access permissions...</span>
                             </div>
                           </td>
                         </tr>
                       ) : filteredStaff.length === 0 ? (
                         <tr>
-                          <td colSpan="7" style={{ textAlign: "center", padding: "36px", color: "#64748b" }}>
+                          <td colSpan="6" style={{ textAlign: "center", padding: "36px", color: "#64748b" }}>
                             No employees match your search criteria.
                           </td>
                         </tr>
@@ -1175,24 +1140,6 @@ export default function SettingsPage() {
                                   <span style={{ color: "#94a3b8", fontStyle: "italic", fontSize: "12px" }}>
                                     Not provisioned
                                   </span>
-                                )}
-                              </td>
-
-                              <td>
-                                {allowed.length > 0 ? (
-                                  <div className="pa-module-chips">
-                                    {allowed.map((mKey) => (
-                                      <span key={mKey} className={`pa-chip pa-chip-${mKey}`}>
-                                        {mKey}
-                                      </span>
-                                    ))}
-                                  </div>
-                                ) : staff.user ? (
-                                  <span style={{ fontSize: "12px", color: "#f97316" }}>
-                                    No modules assigned
-                                  </span>
-                                ) : (
-                                  <span style={{ color: "#94a3b8", fontSize: "12px" }}>—</span>
                                 )}
                               </td>
 

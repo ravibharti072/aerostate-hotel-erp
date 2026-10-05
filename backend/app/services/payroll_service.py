@@ -16,16 +16,56 @@ def add_months(sourcedate: datetime, months: int) -> datetime:
 
 
 class PayrollService:
+    # Payroll is sensitive: read access is for hotel admins/managers/accountants,
+    # write access (processing runs, changing status, adjusting pay) is narrower.
+    READ_ROLES = ["super-admin", "hotel-admin", "manager", "accountant"]
+    WRITE_ROLES = ["super-admin", "hotel-admin", "manager", "accountant"]
+    PROCESS_ROLES = ["super-admin", "hotel-admin", "accountant"]
+
     def __init__(self, db: Session):
         self.db = db
         self.repo = PayrollRepository(db)
 
     # -------------------------------------------------------------
+    # Authorization & Tenant Guards
+    # -------------------------------------------------------------
+
+    def _resolve_target_hotel_id(self, current_user: models.User) -> Optional[int]:
+        """
+        Returns the hotel_id the caller is allowed to operate on.
+        None means "all hotels" and is only ever returned for a super-admin.
+        """
+        return None if current_user.role == "super-admin" else current_user.hotel_id
+
+    def _assert_can_read(self, current_user: models.User) -> None:
+        if current_user.role not in self.READ_ROLES:
+            raise HTTPException(
+                status_code=403,
+                detail="Only hotel-admin, manager, accountant or super-admin can view payroll",
+            )
+
+    def _assert_can_manage(self, current_user: models.User, action_label: str) -> None:
+        if current_user.role not in self.WRITE_ROLES:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Only hotel-admin, manager, accountant or super-admin can {action_label}",
+            )
+
+    def _assert_can_process(self, current_user: models.User) -> None:
+        if current_user.role not in self.PROCESS_ROLES:
+            raise HTTPException(
+                status_code=403,
+                detail="Only hotel-admin, accountant or super-admin can process payroll",
+            )
+
+    # -------------------------------------------------------------
     # 1. Get All Salary Structures
     # -------------------------------------------------------------
 
-    def get_staff_salaries(self) -> Dict[int, Dict[str, Any]]:
-        structures = self.repo.list_salary_structures()
+    def get_staff_salaries(self, current_user: models.User) -> Dict[int, Dict[str, Any]]:
+        self._assert_can_read(current_user)
+        target_hotel_id = self._resolve_target_hotel_id(current_user)
+        structures = self.repo.list_salary_structures(target_hotel_id)
         result: Dict[int, Dict[str, Any]] = {}
 
         for s in structures:
@@ -49,30 +89,52 @@ class PayrollService:
     # 2. Save or Update Salary Structure
     # -------------------------------------------------------------
 
-    def save_staff_salary(self, payload: schemas.StaffSalaryStructureCreate) -> Dict[str, str]:
+    def save_staff_salary(
+        self,
+        payload: schemas.StaffSalaryStructureCreate,
+        current_user: models.User,
+    ) -> Dict[str, str]:
+        self._assert_can_manage(current_user, "save salary structures")
+
+        staff = self.db.query(models.Staff).filter(models.Staff.id == payload.staff_id).first()
+        if not staff:
+            raise HTTPException(status_code=404, detail="Staff member not found")
+
+        # Never trust a client-supplied hotel_id: derive it from the staff record
+        # and confirm the caller owns that hotel.
+        if (
+            current_user.role != "super-admin"
+            and staff.hotel_id != current_user.hotel_id
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="You can only set salary structures for staff in your own hotel",
+            )
+
         try:
             existing = self.repo.get_salary_structure_by_staff_id(payload.staff_id)
             payload_data = payload.dict() if hasattr(payload, "dict") else payload.model_dump()
-            if not payload_data.get("hotel_id"):
-                staff = self.db.query(models.Staff).filter(models.Staff.id == payload.staff_id).first()
-                if staff and staff.hotel_id:
-                    payload_data["hotel_id"] = staff.hotel_id
-                else:
-                    first_hotel = self.db.query(models.Hotel).first()
-                    payload_data["hotel_id"] = first_hotel.id if first_hotel else 1
+            payload_data["hotel_id"] = staff.hotel_id
             self.repo.save_salary_structure(existing, payload_data)
             return {"message": "Salary structure saved successfully"}
+        except HTTPException:
+            self.repo.rollback()
+            raise
         except Exception as e:
             self.repo.rollback()
-            print("\n❌ DATABASE ERROR SAVING SALARY:", str(e), "\n")
+            print("\n DATABASE ERROR SAVING SALARY:", str(e), "\n")
             raise HTTPException(status_code=500, detail=f"Database Error: {str(e)}")
 
     # -------------------------------------------------------------
     # 3. Get Payroll Records for a Month
     # -------------------------------------------------------------
 
-    def get_payroll_records(self, month: str) -> List[Dict[str, Any]]:
-        records = self.repo.list_payroll_by_month(month)
+    def get_payroll_records(
+        self, month: str, current_user: models.User
+    ) -> List[Dict[str, Any]]:
+        self._assert_can_read(current_user)
+        target_hotel_id = self._resolve_target_hotel_id(current_user)
+        records = self.repo.list_payroll_by_month(month, target_hotel_id)
         results: List[Dict[str, Any]] = []
 
         for r in records:
@@ -182,14 +244,24 @@ class PayrollService:
 
         return month_absent_count
 
-    def process_payroll(self, payload: schemas.ProcessPayrollRequest) -> Dict[str, str]:
+    def process_payroll(
+        self, payload: schemas.ProcessPayrollRequest, current_user: models.User
+    ) -> Dict[str, str]:
+        self._assert_can_process(current_user)
+        target_hotel_id = self._resolve_target_hotel_id(current_user)
+        if target_hotel_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="A super-admin must select a hotel before processing payroll.",
+            )
         try:
             year, month_num = map(int, payload.month.split("-"))
             total_days_in_month = calendar.monthrange(year, month_num)[1]
 
-            staff_members = self.repo.list_active_staff()
+            staff_members = self.repo.list_active_staff(target_hotel_id)
             existing_records = {
-                r.staff_id: r for r in self.repo.list_payroll_by_month(payload.month)
+                r.staff_id: r
+                for r in self.repo.list_payroll_by_month(payload.month, target_hotel_id)
             }
 
             updates: List[tuple[models.StaffSalary, Dict[str, Any]]] = []
@@ -201,7 +273,9 @@ class PayrollService:
                 if current_record and current_record.status in ["Finalized", "Paid"]:
                     continue
 
-                salary_struct = self.repo.get_salary_structure_by_staff_id(staff.id)
+                salary_struct = self.repo.get_salary_structure_by_staff_id(
+                    staff.id, target_hotel_id
+                )
                 if not salary_struct:
                     continue
 
@@ -275,9 +349,12 @@ class PayrollService:
             self.repo.save_bulk_payroll(updates, new_records)
             return {"message": f"Successfully processed payroll for {processed_count} employees."}
 
+        except HTTPException:
+            self.repo.rollback()
+            raise
         except Exception as e:
             self.repo.rollback()
-            print("\n❌ ERROR PROCESSING PAYROLL:", str(e), "\n")
+            print("\n ERROR PROCESSING PAYROLL:", str(e), "\n")
             raise HTTPException(status_code=500, detail=str(e))
 
     # -------------------------------------------------------------
@@ -285,13 +362,18 @@ class PayrollService:
     # -------------------------------------------------------------
 
     def update_payroll_status(
-        self, record_id: int, payload: schemas.PayrollStatusUpdate
+        self,
+        record_id: int,
+        payload: schemas.PayrollStatusUpdate,
+        current_user: models.User,
     ) -> Dict[str, str]:
+        self._assert_can_manage(current_user, "update payroll status")
+        target_hotel_id = self._resolve_target_hotel_id(current_user)
         try:
-            record = self.repo.get_payroll_record_by_id(record_id)
+            record = self.repo.get_payroll_record_by_id(record_id, target_hotel_id)
             if not record:
                 record = self.repo.get_payroll_record_by_staff_and_month(
-                    payload.staff_id, payload.month
+                    payload.staff_id, payload.month, target_hotel_id
                 )
 
             if not record:
@@ -313,10 +395,13 @@ class PayrollService:
                     .first()
                 )
                 if not existing_expense:
+                    # record.hotel_id is authoritative; never fall back to hotel 1.
                     hotel_id = record.hotel_id or (staff.hotel_id if staff else None)
                     if not hotel_id:
-                        first_h = self.db.query(models.Hotel).first()
-                        hotel_id = first_h.id if first_h else 1
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Cannot record a salary expense: the payroll record has no hotel.",
+                        )
                     expense = models.Expense(
                         hotel_id=hotel_id,
                         staff_id=record.staff_id,
@@ -343,13 +428,18 @@ class PayrollService:
     # -------------------------------------------------------------
 
     def add_payroll_adjustment(
-        self, record_id: int, payload: schemas.AdjustmentRequest
+        self,
+        record_id: int,
+        payload: schemas.AdjustmentRequest,
+        current_user: models.User,
     ) -> Dict[str, str]:
+        self._assert_can_manage(current_user, "add payroll adjustments")
+        target_hotel_id = self._resolve_target_hotel_id(current_user)
         try:
-            record = self.repo.get_payroll_record_by_id(record_id)
+            record = self.repo.get_payroll_record_by_id(record_id, target_hotel_id)
             if not record:
                 record = self.repo.get_payroll_record_by_staff_and_month(
-                    record_id, payload.month
+                    record_id, payload.month, target_hotel_id
                 )
 
             if not record:

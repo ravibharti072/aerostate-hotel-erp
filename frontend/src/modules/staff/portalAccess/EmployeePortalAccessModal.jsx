@@ -15,6 +15,7 @@ import {
   BedDouble,
   ClipboardList,
   Utensils,
+  Soup,
   Package,
   Wrench,
   CreditCard,
@@ -80,16 +81,16 @@ export const DESIGNATION_OPTIONS = [
     description: "Front office head: command center, shift audit logs, room inventory, and team supervision.",
   },
   {
-    key: "restaurant_staff",
-    label: "Restaurant Staff",
-    role: "restaurant",
-    role_level: "employee",
+    key: "kitchen_staff",
+    label: "Kitchen Staff / KDS",
+    role: "kitchen",
+    role_level: "kitchen",
     department: "restaurant",
-    defaultDesignation: "Waiter / Steward",
-    badge: "Staff",
-    icon: Utensils,
+    defaultDesignation: "Chef / Cook",
+    badge: "Kitchen",
+    icon: Soup,
     colorClass: "pa-icon-orange",
-    description: "Restaurant & kitchen staff: order taking, kitchen display system, and table management.",
+    description: "Kitchen display system (KDS): live tickets, order prep queue, and marking food ready.",
   },
   {
     key: "restaurant_hod",
@@ -101,7 +102,19 @@ export const DESIGNATION_OPTIONS = [
     badge: "HOD",
     icon: Utensils,
     colorClass: "pa-icon-orange",
-    description: "F&B department head: menu catalog, POS bills, dining revenue reports, and banquet operations.",
+    description: "F&B department head: complete command center, menu items, table management, POS billing, and reports.",
+  },
+  {
+    key: "restaurant_staff",
+    label: "Restaurant Service Staff (Optional)",
+    role: "restaurant",
+    role_level: "employee",
+    department: "restaurant",
+    defaultDesignation: "Waiter / Steward",
+    badge: "Staff (Optional)",
+    icon: Utensils,
+    colorClass: "pa-icon-blue",
+    description: "Service waitstaff (Optional): order taking at tables, table layout seating, and room service delivery. (For smaller teams, HOD + Kitchen portals are sufficient).",
   },
   {
     key: "maintenance_staff",
@@ -199,8 +212,18 @@ export const getDesignationForStaff = (staff) => {
   if (dept.includes("maint") || dept.includes("engin") || dept.includes("garden") || userRole === "maintenance") {
     return DESIGNATION_OPTIONS.find((d) => d.key === (isHead ? "maintenance_hod" : "maintenance_staff")) || DESIGNATION_OPTIONS[6];
   }
-  if (dept.includes("rest") || dept.includes("banquet") || dept.includes("food") || dept.includes("kitchen") || userRole === "restaurant") {
-    return DESIGNATION_OPTIONS.find((d) => d.key === (isHead ? "restaurant_hod" : "restaurant_staff")) || DESIGNATION_OPTIONS[4];
+  if (dept.includes("rest") || dept.includes("banquet") || dept.includes("food") || dept.includes("kitchen") || userRole === "restaurant" || userRole === "kitchen") {
+    if (
+      userRole === "kitchen" ||
+      roleLevel === "kitchen" ||
+      designation.includes("cook") ||
+      designation.includes("chef") ||
+      designation.includes("kitchen") ||
+      dept.includes("kitchen")
+    ) {
+      return DESIGNATION_OPTIONS.find((d) => d.key === "kitchen_staff") || DESIGNATION_OPTIONS[2];
+    }
+    return DESIGNATION_OPTIONS.find((d) => d.key === (isHead ? "restaurant_hod" : "restaurant_staff")) || DESIGNATION_OPTIONS[3];
   }
   if (dept.includes("account") || dept.includes("cash") || dept.includes("finance") || userRole === "accountant") {
     return DESIGNATION_OPTIONS.find((d) => d.key === (isHead ? "accounts_hod" : "accounts_staff")) || DESIGNATION_OPTIONS[8];
@@ -637,8 +660,9 @@ export default function EmployeePortalAccessModal({
                     <option value="front_desk_hod">Front Desk HOD (Front Office Manager / Head)</option>
                   </optgroup>
                   <optgroup label="Restaurant & POS Department">
-                    <option value="restaurant_staff">Restaurant Staff (Waiter / Steward / Kitchen)</option>
+                    <option value="kitchen_staff">Kitchen Staff (Cook / Chef / KDS Display)</option>
                     <option value="restaurant_hod">Restaurant HOD (F&B Manager / Head)</option>
+                    <option value="restaurant_staff">Restaurant Service Staff (Waiter / Steward) [Optional]</option>
                   </optgroup>
                   <optgroup label="Maintenance & Engineering">
                     <option value="maintenance_staff">Maintenance Staff (Technician / Plumber / Electrician)</option>

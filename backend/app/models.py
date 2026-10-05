@@ -112,9 +112,11 @@ class Room(Base):
     base_price = Column(Float, nullable=False)
     status = Column(String, default="available")
     description = Column(String, nullable=True)
+    assigned_staff_id = Column(Integer, ForeignKey("staff.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     hotel = relationship("Hotel", back_populates="rooms")
+    assigned_staff = relationship("Staff", foreign_keys=[assigned_staff_id])
     bookings = relationship("Booking", back_populates="room")
     folio_charges = relationship("FolioCharge", back_populates="room")
     maintenance_requests = relationship("MaintenanceRequest", back_populates="room")
@@ -1383,6 +1385,7 @@ class HousekeepingTask(Base):
     started_by = Column(String, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     completed_by = Column(String, nullable=True)
+    checklist = Column(JSON, default=list, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -1430,6 +1433,33 @@ class HousekeepingTaskHistory(Base):
 
     hotel = relationship("Hotel", back_populates="housekeeping_history")
     task = relationship("HousekeepingTask", back_populates="history")
+
+
+class Checklist(Base):
+    """A reusable checklist template (e.g. a housekeeping deep-clean or inspection checklist).
+
+    HODs/admins build these once and the items are the points an attendant or inspector ticks off.
+    """
+
+    __tablename__ = "checklists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False, index=True)
+
+    name = Column(String(150), nullable=False)
+    department = Column(String(80), nullable=False, default="housekeeping")
+    description = Column(Text, nullable=True)
+    # Ordered list of checklist points, each stored as {"text": str, "required": bool}
+    items = Column(JSON, default=[], nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    created_by = Column(String(120), nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    hotel = relationship("Hotel")
+    creator = relationship("User")
 
 
 class Staff(Base):

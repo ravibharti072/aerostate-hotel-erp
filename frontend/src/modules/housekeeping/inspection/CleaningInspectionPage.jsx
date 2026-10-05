@@ -613,6 +613,28 @@ export default function CleaningInspectionPage({ showBack = true }) {
                           <span style={{ fontSize: "12px", color: "#334155", lineHeight: "1.4" }}>
                             {noteInfo.text}
                           </span>
+                          {Array.isArray(task.checklist) && task.checklist.length > 0 && (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                color: "#059669",
+                                background: "#ecfdf5",
+                                border: "1px solid #bbf7d0",
+                                padding: "2px 7px",
+                                borderRadius: "4px",
+                                marginTop: "3px",
+                                alignSelf: "flex-start",
+                              }}
+                              title={task.checklist.map((c) => `${c.checked ? "✓" : "○"} ${c.text}`).join("\n")}
+                            >
+                              <ClipboardCheck size={12} />
+                              {task.checklist.filter((c) => c.checked).length}/{task.checklist.length} checklist points marked
+                            </span>
+                          )}
                         </div>
                       </td>
 

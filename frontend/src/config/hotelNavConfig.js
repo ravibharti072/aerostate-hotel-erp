@@ -8,8 +8,8 @@ import {
   Package,
   Wrench,
   Settings,
-  Bell,
   ClipboardList,
+  ClipboardCheck,
   FileText,
   Truck,
 } from "lucide-react";
@@ -62,6 +62,7 @@ export const hotelNavSections = [
           { label: "Kitchen", path: "/restaurant/kitchen" },
           { label: "Table Management", path: "/restaurant/tables" },
           { label: "Billing", path: "/restaurant/billing" },
+          { label: "Reports", path: "/restaurant/reports" },
         ],
       },
       {
@@ -71,6 +72,7 @@ export const hotelNavSections = [
         children: [
           { label: "Checkout Cleaning", path: "/housekeeping/checkout-cleaning" },
           { label: "Cleaning Inspection", path: "/housekeeping/inspection" },
+          { label: "Cleaning Checklists", path: "/checklists" },
           { label: "Maintenance Requests", path: "/housekeeping/maintenance-requests" },
         ],
       },
@@ -156,14 +158,6 @@ export const hotelNavSections = [
         path: "/settings",
         icon: Settings,
         alwaysShow: true,
-      },
-      {
-        label: "Updates & Alerts",
-        path: "/alerts",
-        icon: Bell,
-        alwaysShow: true,
-        moduleKey: "alerts",
-        isAlertTile: true,
       },
     ],
   },

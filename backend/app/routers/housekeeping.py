@@ -8,7 +8,7 @@ from sqlalchemy import or_, and_
 from app import models, schemas
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.services.housekeeping_service import HousekeepingService
+from app.services.housekeeping_service import HousekeepingService, get_last_cleaner_for_room
 
 router = APIRouter(tags=["Housekeeping"])
 
@@ -54,6 +54,77 @@ class TaskInspectionPayload(BaseModel):
     notes: Optional[str] = None
 
 
+class RoomStaffAssignPayload(BaseModel):
+    staff_id: int
+
+
+def get_room_assigned_attendant(db: Session, room_id: int):
+    """
+    Returns (assigned_staff_id, assigned_to_name) for a room.
+    Prioritizes room.assigned_staff_id, then falls back to the most recent task's staff.
+    """
+    room = db.query(models.Room).filter(models.Room.id == room_id).first()
+    if room and room.assigned_staff_id:
+        staff = db.query(models.Staff).filter(models.Staff.id == room.assigned_staff_id).first()
+        if staff:
+            return staff.id, staff.full_name
+
+    # Fallback to last cleaner task
+    last_cleaner = get_last_cleaner_for_room(db, room_id)
+    if last_cleaner and last_cleaner.assigned_staff_id:
+        if room and not room.assigned_staff_id:
+            room.assigned_staff_id = last_cleaner.assigned_staff_id
+            db.commit()
+        return last_cleaner.assigned_staff_id, last_cleaner.assigned_to
+
+    return None, None
+
+
+def get_default_checklist_items(db: Session, hotel_id: Optional[int], task_type: str = "checkout-cleaning") -> list:
+    """Finds an active checklist created by the HOD for housekeeping matching task_type or default."""
+    if not hotel_id:
+        return []
+    templates = (
+        db.query(models.Checklist)
+        .filter(
+            models.Checklist.hotel_id == hotel_id,
+            models.Checklist.department == "housekeeping",
+            models.Checklist.is_active == True,
+        )
+        .all()
+    )
+    if not templates:
+        return []
+
+    selected = None
+    task_type_lower = (task_type or "").lower()
+    for t in templates:
+        name_lower = (t.name or "").lower()
+        if "checkout" in task_type_lower and ("checkout" in name_lower or "turnover" in name_lower):
+            selected = t
+            break
+        elif "stayover" in task_type_lower and "stayover" in name_lower:
+            selected = t
+            break
+        elif "deep" in task_type_lower and "deep" in name_lower:
+            selected = t
+            break
+
+    if not selected:
+        selected = templates[0]
+
+    raw_items = selected.items if isinstance(selected.items, list) else []
+    return [
+        {
+            "text": it.get("text") if isinstance(it, dict) else str(it),
+            "required": bool(it.get("required", False)) if isinstance(it, dict) else False,
+            "checked": False,
+        }
+        for it in raw_items
+        if (isinstance(it, dict) and it.get("text")) or (isinstance(it, str) and it.strip())
+    ]
+
+
 # -------------------------------------------------------------
 # Auto-Sync: Ensure All Dirty / Vacated Rooms Have Turnover Tasks
 # -------------------------------------------------------------
@@ -61,7 +132,8 @@ class TaskInspectionPayload(BaseModel):
 def ensure_turnover_tasks_for_hotel(db: Session, hotel_id: Optional[int]):
     """
     Scans for any room that needs cleaning ('dirty', 'cleaning', 'turnover')
-    and guarantees an active turnover cleaning task exists.
+    and guarantees an active turnover cleaning task exists, automatically
+    assigned to that room's designated attendant.
     """
     if not hotel_id:
         return
@@ -82,6 +154,8 @@ def ensure_turnover_tasks_for_hotel(db: Session, hotel_id: Optional[int]):
     )
 
     for room in unclean_rooms:
+        staff_id, staff_name = get_room_assigned_attendant(db, room.id)
+
         # Check if there is an active task (pending, assigned, in-progress) OR a completed task awaiting inspection
         existing_task = (
             db.query(models.HousekeepingTask)
@@ -100,7 +174,13 @@ def ensure_turnover_tasks_for_hotel(db: Session, hotel_id: Optional[int]):
             .first()
         )
 
-        if not existing_task:
+        if existing_task:
+            # If the task is unassigned but the room has a designated staff, auto-assign it!
+            if not existing_task.assigned_staff_id and staff_id:
+                existing_task.assigned_staff_id = staff_id
+                existing_task.assigned_to = staff_name
+                existing_task.notes = f"{existing_task.notes or ''}\nAuto-assigned to {staff_name} (room attendant)".strip()
+        else:
             # Find the most recently checked-out booking for this room to link
             recent_booking = (
                 db.query(models.Booking)
@@ -116,11 +196,17 @@ def ensure_turnover_tasks_for_hotel(db: Session, hotel_id: Optional[int]):
                 hotel_id=hotel_id,
                 room_id=room.id,
                 booking_id=recent_booking.id if recent_booking else None,
+                assigned_staff_id=staff_id,
+                assigned_to=staff_name,
                 task_type="checkout-cleaning",
-                priority="high" if room.status == "dirty" else "normal",
+                priority="normal",
                 status="pending",
-                notes=f"Turnover cleaning for Room {room.room_number}",
-                created_by="Front Desk Checkout",
+                notes=(
+                    f"Turnover cleaning for Room {room.room_number}"
+                    + (f"\nAuto-assigned to {staff_name} (designated attendant)" if staff_name else "")
+                ),
+                created_by="Auto-Assignment",
+                checklist=get_default_checklist_items(db, hotel_id, "checkout-cleaning"),
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
             )
@@ -359,7 +445,8 @@ def get_housekeeping_tasks(
     output = []
     for t in tasks:
         room = rooms_map.get(t.room_id)
-        staff = staff_map.get(t.assigned_staff_id)
+        effective_staff_id = t.assigned_staff_id or (room.assigned_staff_id if room else None)
+        staff = staff_map.get(effective_staff_id)
 
         output.append({
             "id": t.id,
@@ -370,7 +457,7 @@ def get_housekeeping_tasks(
             "room_type": room.room_type if room else "Room",
             "room_status": room.status if room else "dirty",
             "booking_id": t.booking_id,
-            "assigned_staff_id": t.assigned_staff_id,
+            "assigned_staff_id": effective_staff_id,
             "assigned_to": staff.full_name if staff else (t.assigned_to or "Unassigned"),
             "task_type": t.task_type or "checkout-cleaning",
             "priority": t.priority or "normal",
@@ -384,6 +471,7 @@ def get_housekeeping_tasks(
             "completed_at": _to_utc_iso(t.completed_at),
             "created_at": _to_utc_iso(t.created_at),
             "updated_at": _to_utc_iso(t.updated_at),
+            "checklist": t.checklist or [],
         })
 
     return output
@@ -453,6 +541,7 @@ def create_housekeeping_task(
             status=task_status,
             notes=data.get("notes"),
             created_by=current_user.full_name or current_user.username,
+            checklist=data.get("checklist") or get_default_checklist_items(db, hotel_id, task_type),
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
         )
@@ -462,6 +551,8 @@ def create_housekeeping_task(
     if room_id:
         room = db.query(models.Room).filter(models.Room.id == room_id).first()
         if room:
+            if assigned_staff_id:
+                room.assigned_staff_id = assigned_staff_id
             if task_status in ["in-progress", "cleaning"]:
                 room.status = "cleaning"
             elif task_status in ["completed", "approved"]:
@@ -551,6 +642,8 @@ def start_cleaning(
     task.started_at = datetime.utcnow()
     task.started_by = current_user.full_name or current_user.username
     task.updated_at = datetime.utcnow()
+    if not task.checklist:
+        task.checklist = get_default_checklist_items(db, task.hotel_id, task.task_type)
 
     # Audit log entry for starting cleaning
     start_iso = _to_utc_iso(task.started_at)
@@ -566,7 +659,24 @@ def start_cleaning(
             room.status = "cleaning"
 
     db.commit()
-    return {"message": "Cleaning started", "status": "in-progress", "room_status": "cleaning"}
+    return {"message": "Cleaning started", "status": "in-progress", "room_status": "cleaning", "checklist": task.checklist or []}
+
+
+@router.put("/housekeeping/tasks/{task_id}/checklist")
+def update_task_checklist(
+    task_id: int,
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    task = db.query(models.HousekeepingTask).filter(models.HousekeepingTask.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task.checklist = payload.get("checklist", [])
+    task.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(task)
+    return {"message": "Checklist updated", "checklist": task.checklist}
 
 
 @router.post("/housekeeping/tasks/{task_id}/complete")
@@ -580,6 +690,15 @@ def complete_cleaning(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
+    # Guard against duplicate submissions: re-completing an already-submitted turnover appends
+    # orphan "[Cleaning Completed ...]" notes with no matching start and overwrites completed_at
+    # / completed_by, which corrupts the audit trail shown to attendants and the HOD.
+    if task.status in ("completed", "approved", "archived"):
+        raise HTTPException(
+            status_code=400,
+            detail="This turnover has already been submitted and is awaiting HOD inspection.",
+        )
+
     task.status = "completed"
     task.completed_at = datetime.utcnow()
     if not task.started_at:
@@ -587,12 +706,22 @@ def complete_cleaning(
     task.completed_by = current_user.full_name or current_user.username
     task.updated_at = datetime.utcnow()
 
+    if payload and "checklist" in payload and payload["checklist"] is not None:
+        task.checklist = payload["checklist"]
+
     comp_iso = _to_utc_iso(task.completed_at)
     completion_text = f"[Cleaning Completed & Submitted for HOD Clearance by {task.completed_by} at {comp_iso}]"
     if payload and payload.get("notes"):
         cleaned_note = payload["notes"].strip()
         if cleaned_note:
             completion_text += f"\nCompletion remarks: {cleaned_note}"
+
+    if task.checklist and isinstance(task.checklist, list):
+        marked = sum(1 for it in task.checklist if isinstance(it, dict) and it.get("checked"))
+        total = len(task.checklist)
+        if total > 0:
+            completion_text += f"\nChecklist verified: {marked}/{total} items marked"
+
     task.notes = f"{task.notes or ''}\n{completion_text}".strip()
 
     # Clean up ANY other open/pending tasks for this room so no orphaned pending tasks remain
@@ -608,7 +737,7 @@ def complete_cleaning(
             room.status = "cleaning"
 
     db.commit()
-    return {"message": "Cleaning completed by attendant. Awaiting HOD inspection.", "status": "completed", "room_status": "cleaning"}
+    return {"message": "Cleaning completed by attendant. Awaiting HOD inspection.", "status": "completed", "room_status": "cleaning", "checklist": task.checklist or []}
 
 
 @router.post("/housekeeping/tasks/{task_id}/assign")
@@ -627,28 +756,105 @@ def assign_task_to_staff(
     if not staff:
         raise HTTPException(status_code=404, detail="Staff member not found")
 
+    # Assigning must never move a turnover backwards through the workflow. A record that has already
+    # been submitted and is waiting for HOD inspection keeps that status (and stays in the inspection
+    # queue) — only the responsible attendant changes. Resetting it to "pending" here was what used to
+    # silently erase a submission, drop the room from the attendant's board and strand it as "dirty".
+    was_submitted = task.status in ("completed", "approved")
+
+    # Assigning is purely a staffing change: it must not touch the room's status. The room status is
+    # owned by the cleaning/inspection workflow (checkout -> dirty, start -> cleaning, pass -> available),
+    # so re-assigning an attendant used to drag a vacant/clean room back to "Dirty / Departed".
     task.assigned_staff_id = staff.id
     task.assigned_to = payload.assigned_to_name or staff.full_name
-    task.status = "pending"
+    if not was_submitted:
+        task.status = "pending"
 
     if payload.notes:
         task.notes = f"{task.notes or ''}\nAssignment: {payload.notes}".strip()
 
-    # Clean up any duplicate open tasks for this room
+    # Clean up any duplicate open tasks for this room (task rows only — room status is left alone)
     if task.room_id:
+        room = db.query(models.Room).filter(models.Room.id == task.room_id).first()
+        if room:
+            room.assigned_staff_id = staff.id
+
         db.query(models.HousekeepingTask).filter(
             models.HousekeepingTask.room_id == task.room_id,
             models.HousekeepingTask.id != task.id,
             models.HousekeepingTask.status.in_(["pending", "assigned"]),
         ).delete(synchronize_session=False)
 
-        room = db.query(models.Room).filter(models.Room.id == task.room_id).first()
-        if room and room.status != "maintenance":
-            room.status = "dirty"
-
     task.updated_at = datetime.utcnow()
     db.commit()
-    return {"message": f"Task assigned to {task.assigned_to} as Pending Turnover", "assigned_to": task.assigned_to, "status": "pending"}
+    return {
+        "message": (
+            f"Task assigned to {task.assigned_to}. Awaiting HOD inspection."
+            if was_submitted
+            else f"Task assigned to {task.assigned_to} as Pending Turnover"
+        ),
+        "assigned_to": task.assigned_to,
+        "status": task.status,
+    }
+
+
+@router.post("/housekeeping/rooms/{room_id}/assign-staff")
+def assign_staff_to_room(
+    room_id: int,
+    payload: RoomStaffAssignPayload,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    room = db.query(models.Room).filter(models.Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    staff = db.query(models.Staff).filter(models.Staff.id == payload.staff_id).first()
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff member not found")
+
+    # Update permanent room assignment
+    room.assigned_staff_id = staff.id
+
+    # If there are active tasks for this room, update their assigned staff too
+    active_tasks = (
+        db.query(models.HousekeepingTask)
+        .filter(
+            models.HousekeepingTask.room_id == room.id,
+            models.HousekeepingTask.status.in_(["pending", "assigned", "in-progress", "completed"]),
+        )
+        .all()
+    )
+    for t in active_tasks:
+        t.assigned_staff_id = staff.id
+        t.assigned_to = staff.full_name
+        t.notes = f"{t.notes or ''}\n[Staff designated to {staff.full_name} by {current_user.full_name or current_user.username or 'HOD'}]".strip()
+
+    # If room is dirty and has NO active task, automatically create the task assigned to this staff
+    if room.status in ["dirty", "cleaning"] and not active_tasks:
+        new_task = models.HousekeepingTask(
+            hotel_id=room.hotel_id,
+            room_id=room.id,
+            assigned_staff_id=staff.id,
+            assigned_to=staff.full_name,
+            task_type="checkout-cleaning",
+            priority="normal",
+            status="pending",
+            notes=f"Turnover cleaning for Room {room.room_number}\nAssigned to {staff.full_name} by supervisor.",
+            created_by=current_user.full_name or current_user.username or "Housekeeping HOD",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        db.add(new_task)
+
+    db.commit()
+    return {
+        "message": f"Room {room.room_number} designated to {staff.full_name}",
+        "room_id": room.id,
+        "room_number": room.room_number,
+        "assigned_staff_id": staff.id,
+        "assigned_to": staff.full_name,
+    }
 
 
 @router.delete("/housekeeping/tasks/{task_id}")
@@ -747,6 +953,11 @@ def inspect_task(
             room = db.query(models.Room).filter(models.Room.id == task.room_id).first()
             if room:
                 room.status = "dirty"
+                if not task.assigned_staff_id and room.assigned_staff_id:
+                    staff = db.query(models.Staff).filter(models.Staff.id == room.assigned_staff_id).first()
+                    if staff:
+                        task.assigned_staff_id = staff.id
+                        task.assigned_to = staff.full_name
 
         db.commit()
         return {

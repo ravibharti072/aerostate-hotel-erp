@@ -13,15 +13,23 @@ class PayrollRepository:
     # Salary Structures
     # -------------------------------------------------------------
 
-    def list_salary_structures(self) -> List[models.StaffSalaryStructure]:
-        return self.db.query(models.StaffSalaryStructure).all()
+    def list_salary_structures(
+        self, hotel_id: Optional[int] = None
+    ) -> List[models.StaffSalaryStructure]:
+        query = self.db.query(models.StaffSalaryStructure)
+        if hotel_id is not None:
+            query = query.filter(models.StaffSalaryStructure.hotel_id == hotel_id)
+        return query.all()
 
-    def get_salary_structure_by_staff_id(self, staff_id: int) -> Optional[models.StaffSalaryStructure]:
-        return (
-            self.db.query(models.StaffSalaryStructure)
-            .filter(models.StaffSalaryStructure.staff_id == staff_id)
-            .first()
+    def get_salary_structure_by_staff_id(
+        self, staff_id: int, hotel_id: Optional[int] = None
+    ) -> Optional[models.StaffSalaryStructure]:
+        query = self.db.query(models.StaffSalaryStructure).filter(
+            models.StaffSalaryStructure.staff_id == staff_id
         )
+        if hotel_id is not None:
+            query = query.filter(models.StaffSalaryStructure.hotel_id == hotel_id)
+        return query.first()
 
     def save_salary_structure(
         self,
@@ -44,31 +52,36 @@ class PayrollRepository:
     # Payroll Records (StaffSalary)
     # -------------------------------------------------------------
 
-    def list_payroll_by_month(self, month: str) -> List[models.StaffSalary]:
-        return (
-            self.db.query(models.StaffSalary)
-            .filter(models.StaffSalary.salary_month == month)
-            .all()
+    def list_payroll_by_month(
+        self, month: str, hotel_id: Optional[int] = None
+    ) -> List[models.StaffSalary]:
+        query = self.db.query(models.StaffSalary).filter(
+            models.StaffSalary.salary_month == month
         )
+        if hotel_id is not None:
+            query = query.filter(models.StaffSalary.hotel_id == hotel_id)
+        return query.all()
 
-    def get_payroll_record_by_id(self, record_id: int) -> Optional[models.StaffSalary]:
-        return (
-            self.db.query(models.StaffSalary)
-            .filter(models.StaffSalary.id == record_id)
-            .first()
+    def get_payroll_record_by_id(
+        self, record_id: int, hotel_id: Optional[int] = None
+    ) -> Optional[models.StaffSalary]:
+        query = self.db.query(models.StaffSalary).filter(
+            models.StaffSalary.id == record_id
         )
+        if hotel_id is not None:
+            query = query.filter(models.StaffSalary.hotel_id == hotel_id)
+        return query.first()
 
     def get_payroll_record_by_staff_and_month(
-        self, staff_id: int, month: str
+        self, staff_id: int, month: str, hotel_id: Optional[int] = None
     ) -> Optional[models.StaffSalary]:
-        return (
-            self.db.query(models.StaffSalary)
-            .filter(
-                models.StaffSalary.staff_id == staff_id,
-                models.StaffSalary.salary_month == month,
-            )
-            .first()
+        query = self.db.query(models.StaffSalary).filter(
+            models.StaffSalary.staff_id == staff_id,
+            models.StaffSalary.salary_month == month,
         )
+        if hotel_id is not None:
+            query = query.filter(models.StaffSalary.hotel_id == hotel_id)
+        return query.first()
 
     def update_payroll_record(
         self,
@@ -99,8 +112,11 @@ class PayrollRepository:
     # Attendance, Leave & Staff Lookups
     # -------------------------------------------------------------
 
-    def list_active_staff(self) -> List[models.Staff]:
-        return self.db.query(models.Staff).filter(models.Staff.status == "active").all()
+    def list_active_staff(self, hotel_id: Optional[int] = None) -> List[models.Staff]:
+        query = self.db.query(models.Staff).filter(models.Staff.status == "active")
+        if hotel_id is not None:
+            query = query.filter(models.Staff.hotel_id == hotel_id)
+        return query.all()
 
     def list_staff_attendance(self, staff_id: int) -> List[models.StaffAttendance]:
         return (

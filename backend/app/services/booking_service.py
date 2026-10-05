@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.repositories.booking_repository import BookingRepository
+from app.services.housekeeping_service import get_last_cleaner_for_room
 
 
 def get_all_booking_room_ids(booking: models.Booking) -> Set[int]:
@@ -894,7 +895,9 @@ class BookingService:
         stay_calc = self.calculate_stay_cycle(booking.hotel_id, booking.checkin_date, now)
 
         rooms_to_clean = get_all_booking_room_ids(booking)
-        self.repo.update_room_status_by_ids(list(rooms_to_clean), booking.hotel_id, "cleaning")
+        # The guest has left, so the room belongs in the dirty / departed queue — not in
+        # "in cleaning" (that state means an attendant has actually started the turnover).
+        self.repo.update_room_status_by_ids(list(rooms_to_clean), booking.hotel_id, "dirty")
 
         booking.status = "checked-out"
         booking.checkout_date = now
@@ -904,11 +907,17 @@ class BookingService:
         booking.is_late_checkout = stay_calc["is_late_checkout"]
 
         for r_id in rooms_to_clean:
+            # Whoever cleaned this room last takes it again — the guest has just left, so the
+            # turnover should land in that attendant's queue automatically.
+            last_cleaner = get_last_cleaner_for_room(self.db, r_id)
             existing_task = self.repo.get_open_housekeeping_task(booking.hotel_id, r_id)
             if existing_task:
                 existing_task.booking_id = booking.id
                 existing_task.task_type = "checkout-cleaning"
                 existing_task.priority = "high"
+                if last_cleaner and not existing_task.assigned_staff_id:
+                    existing_task.assigned_staff_id = last_cleaner.assigned_staff_id
+                    existing_task.assigned_to = last_cleaner.assigned_to
                 existing_task.notes = f"Updated after checkout for booking #{booking.id}"
                 existing_task.updated_at = datetime.utcnow()
             else:
@@ -919,8 +928,13 @@ class BookingService:
                     "task_type": "checkout-cleaning",
                     "priority": "high",
                     "status": "pending",
-                    "assigned_to": None,
-                    "notes": f"Auto-created after checkout for booking #{booking.id}",
+                    "assigned_staff_id": last_cleaner.assigned_staff_id if last_cleaner else None,
+                    "assigned_to": last_cleaner.assigned_to if last_cleaner else None,
+                    "notes": (
+                        f"Auto-created after checkout for booking #{booking.id}"
+                        + (f"\nAuto-assigned to {last_cleaner.assigned_to} (last attendant for this room)"
+                           if last_cleaner and last_cleaner.assigned_to else "")
+                    ),
                     "created_by": current_user.username,
                 })
 

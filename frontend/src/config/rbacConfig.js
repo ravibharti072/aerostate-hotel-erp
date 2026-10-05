@@ -7,6 +7,7 @@ export const ROLE_LEVELS = {
   HOTEL_ADMIN: "hotel_admin",
   DEPARTMENT_HEAD: "department_head",
   EMPLOYEE: "employee",
+  KITCHEN: "kitchen",
 };
 
 /**
@@ -81,7 +82,7 @@ export const DEPARTMENT_CONFIGS = {
   housekeeping: {
     department_head: {
       defaultRoute: "/housekeeping/dashboard",
-      allowedModules: ["housekeeping", "rooms", "maintenance", "alerts", "reports"],
+      allowedModules: ["housekeeping", "rooms", "maintenance", "alerts", "reports", "checklists"],
       allowedPaths: [
         "/dashboard",
         "/housekeeping",
@@ -91,6 +92,11 @@ export const DEPARTMENT_CONFIGS = {
         "/housekeeping/maintenance",
         "/housekeeping/maintenance-requests",
         "/housekeeping/tasks",
+        "/housekeeping/staff",
+        "/housekeeping/my-tasks",
+        "/checklists",
+        "/checklists/add",
+        "/housekeeping/checklists",
         "/room-status",
         "/alerts",
         "/alerts/details",
@@ -101,6 +107,7 @@ export const DEPARTMENT_CONFIGS = {
         housekeeping: [
           "/housekeeping/checkout-cleaning",
           "/housekeeping/inspection",
+          "/checklists",
           "/housekeeping/maintenance-requests",
         ],
         rooms: [
@@ -111,13 +118,14 @@ export const DEPARTMENT_CONFIGS = {
         "/housekeeping/dashboard": "Operations Dashboard",
         "/housekeeping/checkout-cleaning": "Checkout Cleaning",
         "/housekeeping/inspection": "Cleaning Inspection",
+        "/checklists": "Cleaning Checklists",
         "/housekeeping/maintenance-requests": "Maintenance Requests",
         "/room-status": "Room Status (View)",
       },
     },
     employee: {
       defaultRoute: "/dashboard",
-      allowedModules: ["housekeeping", "maintenance", "alerts"],
+      allowedModules: ["housekeeping", "maintenance", "alerts", "checklists"],
       allowedPaths: [
         "/dashboard",
         "/housekeeping",
@@ -125,16 +133,19 @@ export const DEPARTMENT_CONFIGS = {
         "/housekeeping/my-tasks",
         "/housekeeping/maintenance",
         "/housekeeping/maintenance-requests",
+        "/checklists",
         "/alerts",
         "/alerts/details",
         "/settings",
       ],
       allowedNavChildren: {
         housekeeping: [
+          "/checklists",
           "/housekeeping/maintenance-requests",
         ],
       },
       labelOverrides: {
+        "/checklists": "Cleaning Checklists",
         "/housekeeping/maintenance-requests": "Raise Maintenance",
       },
     },
@@ -247,6 +258,100 @@ export const DEPARTMENT_CONFIGS = {
       },
     },
   },
+  // ---------------------------------------------------------------
+  // RESTAURANT & F&B: Food & Beverage Manager (HOD) and Restaurant Staff
+  // ---------------------------------------------------------------
+  restaurant: {
+    department_head: {
+      defaultRoute: "/dashboard",
+      allowedModules: ["restaurant", "reports", "alerts"],
+      allowedPaths: [
+        "/dashboard",
+        "/restaurant",
+        "/restaurant/menu-items",
+        "/restaurant/orders",
+        "/restaurant/room-service",
+        "/restaurant/kitchen",
+        "/restaurant/tables",
+        "/restaurant/billing",
+        "/restaurant/reports",
+        "/alerts",
+        "/alerts/details",
+        "/settings",
+        "/reports",
+      ],
+      allowedNavChildren: {
+        restaurant: [
+          "/restaurant/menu-items",
+          "/restaurant/orders",
+          "/restaurant/room-service",
+          "/restaurant/kitchen",
+          "/restaurant/tables",
+          "/restaurant/billing",
+          "/restaurant/reports",
+        ],
+      },
+      labelOverrides: {
+        "/restaurant/menu-items": "Menu Items",
+        "/restaurant/orders": "Orders",
+        "/restaurant/room-service": "Room Service",
+        "/restaurant/kitchen": "Kitchen (KDS)",
+        "/restaurant/tables": "Table Management",
+        "/restaurant/billing": "POS Billing",
+        "/restaurant/reports": "Reports & Analytics",
+      },
+    },
+    kitchen: {
+      defaultRoute: "/restaurant/kitchen",
+      allowedModules: ["restaurant", "alerts"],
+      allowedPaths: [
+        "/restaurant/kitchen",
+        "/restaurant/orders",
+        "/alerts",
+        "/alerts/details",
+        "/settings",
+      ],
+      allowedNavChildren: {
+        restaurant: [
+          "/restaurant/kitchen",
+          "/restaurant/orders",
+        ],
+      },
+      labelOverrides: {
+        "/restaurant/kitchen": "Kitchen Display (KDS)",
+        "/restaurant/orders": "Live Orders Queue",
+      },
+    },
+    employee: {
+      defaultRoute: "/dashboard",
+      allowedModules: ["restaurant", "alerts"],
+      allowedPaths: [
+        "/dashboard",
+        "/restaurant",
+        "/restaurant/orders",
+        "/restaurant/room-service",
+        "/restaurant/kitchen",
+        "/restaurant/tables",
+        "/alerts",
+        "/alerts/details",
+        "/settings",
+      ],
+      allowedNavChildren: {
+        restaurant: [
+          "/restaurant/orders",
+          "/restaurant/room-service",
+          "/restaurant/kitchen",
+          "/restaurant/tables",
+        ],
+      },
+      labelOverrides: {
+        "/restaurant/orders": "Take Orders",
+        "/restaurant/room-service": "Room Service",
+        "/restaurant/kitchen": "Kitchen Status",
+        "/restaurant/tables": "Table Layout",
+      },
+    },
+  },
 };
 
 /**
@@ -262,6 +367,15 @@ export function getUserRoleLevel(user) {
   if (roleLevel === "department_head") {
     return ROLE_LEVELS.DEPARTMENT_HEAD;
   }
+  const designation = (user.designation || user.staff?.designation || "").toLowerCase();
+  if (
+    roleLevel === "kitchen" ||
+    role === "kitchen" ||
+    designation.includes("cook") ||
+    designation.includes("chef")
+  ) {
+    return ROLE_LEVELS.KITCHEN;
+  }
   return ROLE_LEVELS.EMPLOYEE;
 }
 
@@ -276,10 +390,20 @@ export function getUserDepartment(user) {
     if (r.includes("housekeep")) dept = "housekeeping";
     else if (r.includes("front") || r.includes("desk")) dept = "front_desk";
     else if (r.includes("maint") || r.includes("engin")) dept = "maintenance";
-    else if (r.includes("rest") || r.includes("food")) dept = "restaurant";
+    else if (r.includes("rest") || r.includes("food") || r.includes("f&b") || r.includes("kitchen") || r.includes("banquet")) dept = "restaurant";
     else if (r.includes("account") || r.includes("cash")) dept = "accounts";
   }
-  return dept.toLowerCase().trim();
+  const norm = dept.toLowerCase().trim();
+  if (
+    norm.includes("rest") ||
+    norm.includes("food") ||
+    norm.includes("f&b") ||
+    norm.includes("kitchen") ||
+    norm.includes("banquet")
+  ) {
+    return "restaurant";
+  }
+  return norm;
 }
 
 /**
@@ -349,7 +473,9 @@ export function canAccessRoute(path, user) {
     cleanPath === "/dashboard" ||
     cleanPath.startsWith("/alerts") ||
     cleanPath.startsWith("/settings") ||
-    cleanPath.startsWith("/reports")
+    cleanPath.startsWith("/reports") ||
+    // Checklist templates: staff read them, HODs/admins manage them (enforced by the API)
+    cleanPath.startsWith("/checklists")
   ) {
     return true;
   }

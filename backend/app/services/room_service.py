@@ -239,7 +239,14 @@ class RoomService:
         )
 
         clean_status = status.strip().lower()
-        return self.repo.update_room(room, {"status": clean_status})
+        updated_room = self.repo.update_room(room, {"status": clean_status})
+        if clean_status in ["dirty", "cleaning"]:
+            try:
+                from app.routers.housekeeping import ensure_turnover_tasks_for_hotel
+                ensure_turnover_tasks_for_hotel(self.db, room.hotel_id)
+            except Exception as e:
+                print("Failed to auto-ensure turnover task:", e)
+        return updated_room
 
     def delete_room(self, room_id: int, current_user: models.User) -> Dict[str, str]:
         room = self.repo.get_by_id(room_id)

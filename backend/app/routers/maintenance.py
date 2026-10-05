@@ -568,6 +568,7 @@ def list_maintenance_requests_overview(
             "actual_cost": float(r.actual_cost or 0.0),
             "remarks": r.remarks,
             "reported_by": r.reported_by,
+            "created_by_user_id": r.created_by_user_id,
             "created_at": r.created_at,
         })
 
